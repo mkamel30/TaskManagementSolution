@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +13,9 @@ import {
 import { Task, TaskStatus } from '@/types/task';
 import { TaskHistory } from './TaskHistory';
 import { Separator } from './ui/separator';
+import { FileUpload } from './FileUpload';
+import { supabase } from '@/integrations/supabase/client';
+import { dismissToast, showError, showLoading } from '@/utils/toast';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'task_number'>;
 
@@ -26,7 +30,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   onSubmit, 
   onCancel 
 }) => {
-  const [formData, setFormData] = useState<TaskFormData>({
+  const [formData, setFormData] = useState<Omit<TaskFormData, 'file_paths'>>({
     required_action: initialData?.required_action || '',
     notes: initialData?.notes || '',
     status: initialData?.status || 'لم يتم',
@@ -36,6 +40,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     customer_code: initialData?.customer_code || '',
   });
 
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [existingFilePaths, setExistingFilePaths] = useState<string[]>(initialData?.file_paths || []);
+
   const handleStatusChange = (value: TaskStatus) => {
     const newFormData = { ...formData, status: value };
     if (value !== 'ستتم المتابعة مرة اخرى') {
@@ -44,13 +51,47 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     setFormData(newFormData);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    onSubmit({
-      ...formData,
-      reminder_at: formData.reminder_at || undefined,
-    });
+    const loadingToast = showLoading('جاري حفظ المهمة...');
+
+    try {
+      // 1. Upload new files
+      const newUploadedPaths: string[] = [];
+      if (newFiles.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated for file upload.");
+
+        const taskId = initialData?.id || uuidv4();
+
+        for (const file of newFiles) {
+          const filePath = `${user.id}/${taskId}/${uuidv4()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('task_files')
+            .upload(filePath, file);
+
+          if (uploadError) {
+            throw new Error(`فشل تحميل الملف ${file.name}: ${uploadError.message}`);
+          }
+          newUploadedPaths.push(filePath);
+        }
+      }
+
+      // 2. Combine with existing paths
+      const finalFilePaths = [...existingFilePaths, ...newUploadedPaths];
+
+      // 3. Submit form data
+      onSubmit({
+        ...formData,
+        reminder_at: formData.reminder_at || undefined,
+        file_paths: finalFilePaths,
+      });
+
+      dismissToast(loadingToast);
+    } catch (error: any) {
+      dismissToast(loadingToast);
+      showError(error.message);
+    }
   };
 
   return (
@@ -130,6 +171,16 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           value={formData.notes}
           onChange={(e) => setFormData({...formData, notes: e.target.value})}
           dir="rtl"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1 text-right">المرفقات</label>
+        <FileUpload 
+          existingFilePaths={existingFilePaths}
+          onExistingFilePathsChange={setExistingFilePaths}
+          newFiles={newFiles}
+          onNewFilesChange={setNewFiles}
         />
       </div>
       

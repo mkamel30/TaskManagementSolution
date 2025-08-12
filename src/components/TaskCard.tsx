@@ -3,7 +3,7 @@ import { Task, TaskStatus } from '@/types/task';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, Clock, Trash2, Edit, AlertTriangle, User, Building, Code, UserPlus } from 'lucide-react';
+import { Check, Clock, Trash2, Edit, AlertTriangle, User, Building, Code, UserPlus, Paperclip } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Highlighter } from './Highlighter';
 
@@ -77,12 +77,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onSt
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => onEdit(task)}><Edit size={16} /></Button>
           <Button variant="ghost" size="icon" className="w-8 h-8 text-destructive hover:text-destructive" onClick={() => onDelete(task.id)}><Trash2 size={16} /></Button>
         </div>
-        {task.reminder_at ? (
-          <div className={cn("text-xs flex items-center gap-1 flex-row-reverse", isOverdue(task.reminder_at) ? "text-red-500 font-semibold" : "text-muted-foreground")}>
-            {isOverdue(task.reminder_at) && <AlertTriangle size={14} />}
-            <span>تاريخ التذكير: {new Date(task.reminder_at).toLocaleDateString('ar-EG')}</span>
-          </div>
-        ) : <div />}
+        <div className="flex items-center gap-2">
+          {task.file_paths && task.file_paths.length > 0 && (
+            <div className="text-xs flex items-center gap-1 text-muted-foreground">
+              <span>{task.file_paths.length}</span>
+              <Paperclip size={14} />
+            </div>
+          )}
+          {task.reminder_at && (
+            <div className={cn("text-xs flex items-center gap-1 flex-row-reverse", isOverdue(task.reminder_at) ? "text-red-500 font-semibold" : "text-muted-foreground")}>
+              {isOverdue(task.reminder_at) && <AlertTriangle size={14} />}
+              <span>تاريخ التذكير: {new Date(task.reminder_at).toLocaleDateString('ar-EG')}</span>
+            </div>
+          )}
+        </div>
       </CardFooter>
     </Card>
   );
