@@ -15,13 +15,12 @@ import { TaskHistory } from './TaskHistory';
 import { Separator } from './ui/separator';
 import { FileUpload } from './FileUpload';
 import { supabase } from '@/integrations/supabase/client';
-import { dismissToast, showError, showLoading } from '@/utils/toast';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'task_number'>;
 
 interface TaskFormProps {
   initialData?: Task;
-  onSubmit: (task: TaskFormData) => void;
+  onSubmit: (task: TaskFormData) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -53,45 +52,37 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const loadingToast = showLoading('جاري حفظ المهمة...');
+    
+    // Upload new files
+    const newUploadedPaths: string[] = [];
+    if (newFiles.length > 0) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated for file upload.");
 
-    try {
-      // 1. Upload new files
-      const newUploadedPaths: string[] = [];
-      if (newFiles.length > 0) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not authenticated for file upload.");
+      const taskId = initialData?.id || uuidv4();
 
-        const taskId = initialData?.id || uuidv4();
+      for (const file of newFiles) {
+        const filePath = `${user.id}/${taskId}/${uuidv4()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('task_files')
+          .upload(filePath, file);
 
-        for (const file of newFiles) {
-          const filePath = `${user.id}/${taskId}/${uuidv4()}-${file.name}`;
-          const { error: uploadError } = await supabase.storage
-            .from('task_files')
-            .upload(filePath, file);
-
-          if (uploadError) {
-            throw new Error(`فشل تحميل الملف ${file.name}: ${uploadError.message}`);
-          }
-          newUploadedPaths.push(filePath);
+        if (uploadError) {
+          throw new Error(`فشل تحميل الملف ${file.name}: ${uploadError.message}`);
         }
+        newUploadedPaths.push(filePath);
       }
-
-      // 2. Combine with existing paths
-      const finalFilePaths = [...existingFilePaths, ...newUploadedPaths];
-
-      // 3. Submit form data
-      onSubmit({
-        ...formData,
-        reminder_at: formData.reminder_at || undefined,
-        file_paths: finalFilePaths,
-      });
-
-      dismissToast(loadingToast);
-    } catch (error: any) {
-      dismissToast(loadingToast);
-      showError(error.message);
     }
+
+    // Combine with existing paths
+    const finalFilePaths = [...existingFilePaths, ...newUploadedPaths];
+
+    // Submit form data via parent
+    await onSubmit({
+      ...formData,
+      reminder_at: formData.reminder_at || undefined,
+      file_paths: finalFilePaths,
+    });
   };
 
   return (

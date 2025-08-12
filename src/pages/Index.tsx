@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PlusCircle, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { showError, showSuccess } from '@/utils/toast';
+import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportsPage from "@/pages/Reports";
 import { useAuth } from '@/components/AuthManager';
@@ -50,7 +50,8 @@ const Index = () => {
       setIsFormDialogOpen(false);
     },
     onError: (error) => {
-      showError(`خطأ في إنشاء المهمة: ${error.message}`);
+      // Error toast is handled by the caller in handleFormSubmit
+      console.error(`خطأ في إنشاء المهمة: ${error.message}`);
     }
   });
 
@@ -63,7 +64,8 @@ const Index = () => {
       setEditingTask(null);
     },
     onError: (error) => {
-      showError(`خطأ في تحديث المهمة: ${error.message}`);
+      // Error toast is handled by the caller in handleFormSubmit
+      console.error(`خطأ في تحديث المهمة: ${error.message}`);
     }
   });
 
@@ -89,11 +91,18 @@ const Index = () => {
     }
   });
 
-  const handleFormSubmit = (taskData: TaskFormData) => {
-    if (editingTask) {
-      updateMutation.mutate({ id: editingTask.id, updates: taskData });
-    } else {
-      createMutation.mutate(taskData);
+  const handleFormSubmit = async (taskData: TaskFormData) => {
+    const loadingToast = showLoading('جاري حفظ المهمة...');
+    try {
+      if (editingTask) {
+        await updateMutation.mutateAsync({ id: editingTask.id, updates: taskData });
+      } else {
+        await createMutation.mutateAsync(taskData);
+      }
+    } catch (error: any) {
+      showError(error.message || 'An unexpected error occurred');
+    } finally {
+      dismissToast(loadingToast);
     }
   };
 
