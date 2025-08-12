@@ -44,8 +44,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onSt
   return (
     <Card className={cn("w-full transition-all hover:shadow-lg flex flex-col", isOverdue(task.reminder_at) ? "border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700" : "")}>
       <CardHeader className="p-4">
-        <div className="flex justify-between items-start gap-4">
-          <Badge variant={task.status === 'تم التنفيذ' ? 'default' : 'secondary'}>{task.status}</Badge>
+        <div className="flex justify-between items-center gap-4">
           <div className="flex items-center gap-3 flex-row-reverse">
             <button onClick={() => onStatusChange(task.id, task.status === 'تم التنفيذ' ? 'لم يتم' : 'تم التنفيذ')} className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
               {statusIcons[task.status]}
@@ -54,6 +53,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onSt
               <Highlighter text={task.task_number} highlight={searchQuery} />
             </CardTitle>
           </div>
+          <Badge variant={task.status === 'تم التنفيذ' ? 'default' : 'secondary'}>{task.status}</Badge>
         </div>
       </CardHeader>
       <CardContent className="px-4 pt-0 pb-4 space-y-1 flex-grow text-right">
