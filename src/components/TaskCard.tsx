@@ -29,11 +29,11 @@ const isOverdue = (reminderDate?: string) => {
 };
 
 const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string, highlight: string}> = ({ icon: Icon, label, value, highlight }) => (
-  <div className="flex items-start gap-2 flex-row-reverse text-right">
+  <div className="flex items-start gap-2 flex-row-reverse text-right overflow-hidden">
     <Icon className="w-4 h-4 mt-1 text-muted-foreground shrink-0" />
-    <div className="flex flex-col">
+    <div className="flex flex-col min-w-0">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <strong className="font-medium text-sm">
+      <strong className="font-medium text-sm truncate">
         <Highlighter text={value} highlight={highlight} />
       </strong>
     </div>
