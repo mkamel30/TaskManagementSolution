@@ -28,12 +28,12 @@ const isOverdue = (reminderDate?: string) => {
   return new Date(reminderDate) < today;
 };
 
-const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string, highlight: string}> = ({ icon: Icon, label, value, highlight }) => (
+const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string, highlight: string, canWrap?: boolean}> = ({ icon: Icon, label, value, highlight, canWrap = false }) => (
   <div className="flex items-start gap-2 flex-row-reverse text-right overflow-hidden">
     <Icon className="w-4 h-4 mt-1 text-muted-foreground shrink-0" />
     <div className="flex flex-col min-w-0">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <strong className="font-medium text-sm truncate">
+      <strong className={cn("font-medium text-sm", !canWrap && "truncate")}>
         <Highlighter text={value} highlight={highlight} />
       </strong>
     </div>
@@ -69,7 +69,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onSt
           {task.requesting_party && <InfoItem icon={Building} label="الجهة الطالبة" value={task.requesting_party} highlight={searchQuery} />}
           {task.responsible_employee && <InfoItem icon={User} label="الموظف المسؤول" value={task.responsible_employee} highlight={searchQuery} />}
           {task.customer_code && <InfoItem icon={Code} label="كود العميل" value={task.customer_code} highlight={searchQuery} />}
-          {task.creator_email && <InfoItem icon={UserPlus} label="المنشئ" value={task.creator_email} highlight={searchQuery} />}
+          {task.creator_email && <InfoItem icon={UserPlus} label="المنشئ" value={task.creator_email} highlight={searchQuery} canWrap={true} />}
         </div>
       </CardContent>
       <CardFooter className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 py-2 px-4 mt-auto">
