@@ -7,28 +7,35 @@ import { TaskForm } from '@/components/TaskForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { PlusCircle, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportsPage from "@/pages/Reports";
-import { ConfirmPasswordDialog } from '@/components/ConfirmPasswordDialog';
-import { useAuth } from '@/components/AuthManager'; // Import useAuth
+import { useAuth } from '@/components/AuthManager';
 import { Logo } from '@/components/Logo';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'task_number'>;
 
-const ADMIN_PASSWORD = "112233"; // Hardcoded admin password - INSECURE FOR PRODUCTION
-
 const Index = () => {
   const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [taskIdToDelete, setTaskIdToDelete] = useState<string | null>(null);
 
-  const { session } = useAuth(); // Use the useAuth hook
+  const { session } = useAuth();
 
   const { data: tasks, isLoading, isError } = useQuery<Task[]>({
     queryKey: ['tasks'],
@@ -40,7 +47,7 @@ const Index = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       showSuccess('تم إنشاء المهمة بنجاح');
-      setIsDialogOpen(false);
+      setIsFormDialogOpen(false);
     },
     onError: (error) => {
       showError(`خطأ في إنشاء المهمة: ${error.message}`);
@@ -52,7 +59,7 @@ const Index = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       showSuccess('تم تحديث المهمة بنجاح');
-      setIsDialogOpen(false);
+      setIsFormDialogOpen(false);
       setEditingTask(null);
     },
     onError: (error) => {
@@ -65,13 +72,9 @@ const Index = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       showSuccess('تم حذف المهمة بنجاح');
-      setTaskIdToDelete(null);
-      setShowPasswordDialog(false);
     },
     onError: (error) => {
       showError(`خطأ في حذف المهمة: ${error.message}`);
-      setTaskIdToDelete(null);
-      setShowPasswordDialog(false);
     }
   });
   
@@ -96,28 +99,19 @@ const Index = () => {
 
   const handleEdit = (task: Task) => {
     setEditingTask(task);
-    setIsDialogOpen(true);
+    setIsFormDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDeleteRequest = (id: string) => {
     setTaskIdToDelete(id);
-    setShowPasswordDialog(true);
+    setDeleteAlertOpen(true);
   };
 
-  const handleConfirmDelete = (password: string) => {
-    if (password === ADMIN_PASSWORD) {
-      if (taskIdToDelete) {
-        deleteMutation.mutate(taskIdToDelete);
-      }
-    } else {
-      showError('كلمة مرور المسؤول غير صحيحة.');
-      setShowPasswordDialog(false);
-      setTaskIdToDelete(null);
+  const handleConfirmDelete = () => {
+    if (taskIdToDelete) {
+      deleteMutation.mutate(taskIdToDelete);
     }
-  };
-
-  const handleCancelDelete = () => {
-    setShowPasswordDialog(false);
+    setDeleteAlertOpen(false);
     setTaskIdToDelete(null);
   };
   
@@ -125,7 +119,7 @@ const Index = () => {
     if (!open) {
       setEditingTask(null);
     }
-    setIsDialogOpen(open);
+    setIsFormDialogOpen(open);
   };
 
   const handleStatusChange = (id: string, status: Task['status']) => {
@@ -180,7 +174,7 @@ const Index = () => {
                   className="pr-10 text-right"
                 />
               </div>
-              <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+              <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogTrigger asChild>
                   <Button className="shrink-0 flex items-center gap-2">
                     <PlusCircle className="h-4 w-4" />
@@ -204,7 +198,7 @@ const Index = () => {
           <TaskList
             tasks={filteredTasks}
             onEdit={handleEdit}
-            onDelete={handleDelete}
+            onDelete={handleDeleteRequest}
             onStatusChange={handleStatusChange}
             searchQuery={searchQuery}
           />
@@ -214,12 +208,20 @@ const Index = () => {
         </TabsContent>
       </Tabs>
 
-      <ConfirmPasswordDialog
-        isOpen={showPasswordDialog}
-        setIsOpen={setShowPasswordDialog}
-        onConfirm={handleConfirmDelete}
-        onCancel={handleCancelDelete}
-      />
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
+            <AlertDialogDescription>
+              هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف المهمة بشكل دائم.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>متابعة</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
