@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportsPage from "@/pages/Reports";
 import { ConfirmPasswordDialog } from '@/components/ConfirmPasswordDialog';
 import { useAuth } from '@/components/AuthManager'; // Import useAuth
+import { Logo } from '@/components/Logo';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'task_number'>;
 
@@ -160,7 +161,7 @@ const Index = () => {
           )}
           <Button variant="outline" onClick={handleSignOut} className="shrink-0">تسجيل الخروج</Button>
         </div>
-        <img src="https://dtgiroqrqxzzdicwhsbw.supabase.co/storage/v1/object/public/public-assets/Smart-Logo-Horizontal.jpg" alt="Smart Digital Services Logo" className="h-12" />
+        <Logo className="h-12" />
       </header>
 
       <Tabs defaultValue="tasks" className="w-full">
