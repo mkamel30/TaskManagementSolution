@@ -26,7 +26,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   onSubmit, 
   onCancel 
 }) => {
-  const [formData, setFormData] = useState<Omit<TaskFormData, 'file_paths'>>({
+  const [formData, setFormData] = useState({
     required_action: initialData?.required_action || '',
     notes: initialData?.notes || '',
     status: initialData?.status || 'لم يتم',
@@ -37,7 +37,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   });
 
   const handleStatusChange = (value: TaskStatus) => {
-    const newFormData = { ...formData, status: value };
+    const newFormData: typeof formData = { ...formData, status: value };
     if (value !== 'ستتم المتابعة مرة اخرى') {
       newFormData.reminder_at = '';
     }
@@ -47,7 +47,6 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Submit form data via parent
     await onSubmit({
       ...formData,
       reminder_at: formData.reminder_at || undefined,
