@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
 import { Task, TaskStatus } from '@/types/task';
@@ -40,6 +40,8 @@ const Index = () => {
   const [filterRequestingParty, setFilterRequestingParty] = useState<string | 'all'>('all');
   const [sortBy, setSortBy] = useState<'created_at' | 'reminder_at' | 'task_number'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [notifiedOverdueTasks, setNotifiedOverdueTasks] = useState<Set<string>>(new Set());
+
 
   const { session } = useAuth();
 
@@ -212,6 +214,82 @@ const Index = () => {
 
     return currentTasks;
   }, [tasks, searchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder]);
+
+  // Effect for overdue task notifications
+  useEffect(() => {
+    if (tasks && tasks.length > 0) {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0); // Compare dates only
+
+      tasks.forEach(task => {
+        if (task.status !== 'تم التنفيذ' && task.reminder_at) {
+          const reminderDate = new Date(task.reminder_at);
+          reminderDate.setHours(0, 0, 0, 0); // Compare dates only
+
+          if (reminderDate < now && !notifiedOverdueTasks.has(task.id)) {
+            toast.warning(`المهمة رقم ${task.task_number} متأخرة! الإجراء المطلوب: ${task.required_action}`, {
+              duration: 10000, // Keep toast visible for 10 seconds
+              action: {
+                label: 'عرض',
+                onClick: () => {
+                  setEditingTask(task);
+                  setIsFormDialogOpen(true);
+                },
+              },
+              id: `overdue-${task.id}` // Unique ID for the toast
+            });
+            setNotifiedOverdueTasks(prev => new Set(prev).add(task.id));
+          }
+        }
+      });
+    }
+  }, [tasks, notifiedOverdueTasks]);
+
+  // Effect for new comment notifications via Supabase Realtime
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:comments') // Listen to changes in the 'comments' table
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'comments' },
+        async (payload) => {
+          const newComment = payload.new as { task_id: string; comment_text: string; user_id: string; };
+          
+          // Fetch task details to get task_number and creator_email
+          const { data: taskData, error: taskError } = await supabase
+            .from('tasks')
+            .select('task_number, creator_email')
+            .eq('id', newComment.task_id)
+            .single();
+
+          const taskNumber = taskData?.task_number || 'مهمة غير معروفة';
+          const commenterEmail = taskData?.creator_email || 'مستخدم آخر'; // Fallback if creator_email isn't available or accurate for commenter
+
+          toast.info(`تعليق جديد على المهمة رقم ${taskNumber} من ${commenterEmail}: "${newComment.comment_text.substring(0, 50)}..."`, {
+            duration: 5000,
+            action: {
+              label: 'عرض المهمة',
+              onClick: () => {
+                // Find the task in the current list to set it for editing
+                const taskToEdit = tasks?.find(t => t.id === newComment.task_id);
+                if (taskToEdit) {
+                  setEditingTask(taskToEdit);
+                  setIsFormDialogOpen(true);
+                } else {
+                  showError('المهمة غير موجودة أو لم يتم تحميلها.');
+                }
+              },
+            },
+          });
+          queryClient.invalidateQueries({ queryKey: ['taskComments', newComment.task_id] }); // Invalidate comments for that task
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, tasks]); // Depend on queryClient and tasks to find the task for action
 
 
   if (isLoading) return <div className="text-center p-8">جاري تحميل المهام...</div>;
