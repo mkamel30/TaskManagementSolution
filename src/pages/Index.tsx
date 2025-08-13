@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
-import { Task } from '@/types/task';
+import { Task, TaskStatus } from '@/types/task';
 import { TaskList } from '@/components/TaskList';
 import { TaskForm } from '@/components/TaskForm';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportsPage from "@/pages/Reports";
 import { useAuth } from '@/components/AuthManager';
 import { Logo } from '@/components/Logo';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
@@ -34,6 +35,11 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [taskIdToDelete, setTaskIdToDelete] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
+  const [filterResponsibleEmployee, setFilterResponsibleEmployee] = useState<string | 'all'>('all');
+  const [filterRequestingParty, setFilterRequestingParty] = useState<string | 'all'>('all');
+  const [sortBy, setSortBy] = useState<'created_at' | 'reminder_at' | 'task_number'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const { session } = useAuth();
 
@@ -140,17 +146,73 @@ const Index = () => {
     queryClient.clear();
   };
 
-  const filteredTasks = tasks?.filter(task => {
-    const query = searchQuery.toLowerCase();
-    return (
-      (task.task_number && task.task_number.toLowerCase().includes(query)) ||
-      task.required_action.toLowerCase().includes(query) ||
-      (task.notes && task.notes.toLowerCase().includes(query)) ||
-      (task.requesting_party && task.requesting_party.toLowerCase().includes(query)) ||
-      (task.responsible_employee && task.responsible_employee.toLowerCase().includes(query)) ||
-      (task.customer_code && task.customer_code.toLowerCase().includes(query))
-    );
-  }) || [];
+  const uniqueResponsibleEmployees = useMemo(() => {
+    const employees = new Set<string>();
+    tasks?.forEach(task => {
+      if (task.responsible_employee) employees.add(task.responsible_employee);
+    });
+    return Array.from(employees).sort();
+  }, [tasks]);
+
+  const uniqueRequestingParties = useMemo(() => {
+    const parties = new Set<string>();
+    tasks?.forEach(task => {
+      if (task.requesting_party) parties.add(task.requesting_party);
+    });
+    return Array.from(parties).sort();
+  }, [tasks]);
+
+  const filteredAndSortedTasks = useMemo(() => {
+    let currentTasks = tasks || [];
+
+    // Apply search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      currentTasks = currentTasks.filter(task =>
+        (task.task_number && task.task_number.toLowerCase().includes(query)) ||
+        task.required_action.toLowerCase().includes(query) ||
+        (task.notes && task.notes.toLowerCase().includes(query)) ||
+        (task.requesting_party && task.requesting_party.toLowerCase().includes(query)) ||
+        (task.responsible_employee && task.responsible_employee.toLowerCase().includes(query)) ||
+        (task.customer_code && task.customer_code.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply status filter
+    if (filterStatus !== 'all') {
+      currentTasks = currentTasks.filter(task => task.status === filterStatus);
+    }
+
+    // Apply responsible employee filter
+    if (filterResponsibleEmployee !== 'all') {
+      currentTasks = currentTasks.filter(task => task.responsible_employee === filterResponsibleEmployee);
+    }
+
+    // Apply requesting party filter
+    if (filterRequestingParty !== 'all') {
+      currentTasks = currentTasks.filter(task => task.requesting_party === filterRequestingParty);
+    }
+
+    // Apply sorting
+    currentTasks.sort((a, b) => {
+      let valA: any, valB: any;
+
+      if (sortBy === 'created_at' || sortBy === 'reminder_at') {
+        valA = a[sortBy] ? new Date(a[sortBy]).getTime() : (sortBy === 'reminder_at' ? Infinity : -Infinity);
+        valB = b[sortBy] ? new Date(b[sortBy]).getTime() : (sortBy === 'reminder_at' ? Infinity : -Infinity);
+      } else { // task_number
+        valA = a[sortBy] || '';
+        valB = b[sortBy] || '';
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return currentTasks;
+  }, [tasks, searchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder]);
+
 
   if (isLoading) return <div className="text-center p-8">جاري تحميل المهام...</div>;
   if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب المهام</div>;
@@ -204,8 +266,80 @@ const Index = () => {
                 </DialogContent>
               </Dialog>
           </div>
+
+          {/* New Filtering and Sorting Controls */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" dir="rtl">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-right">الحالة</label>
+              <Select value={filterStatus} onValueChange={(value: TaskStatus | 'all') => setFilterStatus(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="تصفية حسب الحالة" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">الكل</SelectItem>
+                  <SelectItem value="لم يتم">لم يتم</SelectItem>
+                  <SelectItem value="ستتم المتابعة مرة اخرى">ستتم المتابعة مرة اخرى</SelectItem>
+                  <SelectItem value="تم التنفيذ">تم التنفيذ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-right">الموظف المسؤول</label>
+              <Select value={filterResponsibleEmployee} onValueChange={(value: string | 'all') => setFilterResponsibleEmployee(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="تصفية حسب الموظف" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">الكل</SelectItem>
+                  {uniqueResponsibleEmployees.map(employee => (
+                    <SelectItem key={employee} value={employee}>{employee}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-right">الجهة الطالبة</label>
+              <Select value={filterRequestingParty} onValueChange={(value: string | 'all') => setFilterRequestingParty(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="تصفية حسب الجهة" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">الكل</SelectItem>
+                  {uniqueRequestingParties.map(party => (
+                    <SelectItem key={party} value={party}>{party}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-right">الترتيب حسب</label>
+              <Select value={sortBy} onValueChange={(value: 'created_at' | 'reminder_at' | 'task_number') => setSortBy(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="الترتيب حسب" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">تاريخ الإنشاء</SelectItem>
+                  <SelectItem value="reminder_at">تاريخ التذكير</SelectItem>
+                  <SelectItem value="task_number">رقم المهمة</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-right">ترتيب</label>
+              <Select value={sortOrder} onValueChange={(value: 'asc' | 'desc') => setSortOrder(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="ترتيب" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">تنازلي</SelectItem>
+                  <SelectItem value="asc">تصاعدي</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <TaskList
-            tasks={filteredTasks}
+            tasks={filteredAndSortedTasks}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onStatusChange={handleStatusChange}
