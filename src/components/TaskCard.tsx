@@ -57,7 +57,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onSt
         </div>
       </CardHeader>
       <CardContent className="px-4 pt-0 pb-4 space-y-1 flex-grow text-right">
-        <p className="font-semibold text-base">
+        <p className="font-semibold text-base text-left" dir="ltr">
           <Highlighter text={task.required_action} highlight={searchQuery} />
         </p>
         {task.notes && (
