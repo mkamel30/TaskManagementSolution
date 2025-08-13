@@ -25,6 +25,7 @@ import ReportsPage from "@/pages/Reports";
 import { useAuth } from '@/components/AuthManager';
 import { Logo } from '@/components/Logo';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner'; // Import toast directly from sonner
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
