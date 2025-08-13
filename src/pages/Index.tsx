@@ -256,15 +256,30 @@ const Index = () => {
         async (payload) => {
           const newComment = payload.new as { task_id: string; comment_text: string; user_id: string; };
           
-          // Fetch task details to get task_number and creator_email
+          // Fetch task details to get task_number
           const { data: taskData, error: taskError } = await supabase
             .from('tasks')
-            .select('task_number, creator_email')
+            .select('task_number')
             .eq('id', newComment.task_id)
             .single();
 
           const taskNumber = taskData?.task_number || 'مهمة غير معروفة';
-          const commenterEmail = taskData?.creator_email || 'مستخدم آخر'; // Fallback if creator_email isn't available or accurate for commenter
+          
+          let commenterEmail = 'مستخدم آخر';
+          try {
+            // Invoke the Edge Function to get the commenter's email
+            const { data: emailData, error: edgeFunctionError } = await supabase.functions.invoke('get-user-email', {
+              body: { user_id: newComment.user_id },
+            });
+
+            if (edgeFunctionError) {
+              console.error('Error invoking get-user-email edge function:', edgeFunctionError);
+            } else if (emailData && emailData.email) {
+              commenterEmail = emailData.email;
+            }
+          } catch (e) {
+            console.error('Exception calling get-user-email edge function:', e);
+          }
 
           toast.info(`تعليق جديد على المهمة رقم ${taskNumber} من ${commenterEmail}: "${newComment.comment_text.substring(0, 50)}..."`, {
             duration: 5000,
