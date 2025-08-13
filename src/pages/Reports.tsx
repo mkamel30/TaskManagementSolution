@@ -9,6 +9,7 @@ import { startOfMonth, endOfMonth, startOfWeek, addDays, endOfDay, isWithinInter
 import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { KPICards } from '@/components/KPICards'; // Import the new KPICards component
+import { TaskLoadChart } from '@/components/TaskLoadChart'; // Import the new TaskLoadChart component
 
 const ReportsPage = () => {
   const [startDate, setStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
@@ -111,7 +112,7 @@ const ReportsPage = () => {
         </CardContent>
       </Card>
 
-      <KPICards tasks={filteredTasks} /> {/* Add the KPI Cards here */}
+      <KPICards tasks={filteredTasks} />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
@@ -122,13 +123,12 @@ const ReportsPage = () => {
             <TaskChart tasks={filteredTasks} />
           </CardContent>
         </Card>
-        {/* You can add another chart here, or modify the existing ones to show different views of filteredTasks */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-right">توزيع المهام حسب الحالة</CardTitle>
+            <CardTitle className="text-right">توزيع المهام حسب الموظف المسؤول</CardTitle>
           </CardHeader>
           <CardContent>
-            <TaskChart tasks={filteredTasks} /> {/* Re-using TaskChart for the same data, but could be a different chart type */}
+            <TaskLoadChart tasks={filteredTasks} />
           </CardContent>
         </Card>
       </div>
