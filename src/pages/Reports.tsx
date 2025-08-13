@@ -8,6 +8,7 @@ import { ExportTasks } from '@/components/ExportTasks';
 import { startOfMonth, endOfMonth, startOfWeek, addDays, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { KPICards } from '@/components/KPICards'; // Import the new KPICards component
 
 const ReportsPage = () => {
   const [startDate, setStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
@@ -64,11 +65,6 @@ const ReportsPage = () => {
   if (isLoading) return <div className="text-center p-8">جاري تحميل التقارير...</div>;
   if (isError || !tasks) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء تحميل البيانات.</div>;
 
-  // The charts will now use the globally filtered tasks
-  // The "weekly" and "monthly" concepts are now less relevant for the main charts
-  // but we can still show them based on the filtered data if desired, or remove them.
-  // For now, I'll keep the charts showing data based on the `filteredTasks` array.
-
   return (
     <div className="space-y-6">
       <Card>
@@ -114,6 +110,8 @@ const ReportsPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      <KPICards tasks={filteredTasks} /> {/* Add the KPI Cards here */}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
