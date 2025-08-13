@@ -2,15 +2,22 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Task, TaskStatus } from '@/types/task';
 
-interface TaskLoadChartProps {
-  tasks: Task[];
-}
-
 const STATUS_ORDER: TaskStatus[] = ['لم يتم', 'ستتم المتابعة مرة اخرى', 'تم التنفيذ'];
 const COLORS_MAP: Record<TaskStatus, string> = {
   'لم يتم': 'hsl(var(--destructive))', // Red
   'ستتم المتابعة مرة اخرى': '#f59e0b', // Amber
   'تم التنفيذ': 'hsl(var(--primary))', // Primary color
+};
+
+// Custom component to render Y-axis ticks inside the bars
+const CustomYAxisTick = ({ x, y, payload }: any) => {
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={5} y={0} dy={4} textAnchor="start" fill="#fff" className="text-xs font-semibold">
+        {payload.value}
+      </text>
+    </g>
+  );
 };
 
 export const TaskLoadChart: React.FC<TaskLoadChartProps> = ({ tasks }) => {
@@ -53,7 +60,14 @@ export const TaskLoadChart: React.FC<TaskLoadChartProps> = ({ tasks }) => {
         >
           <CartesianGrid strokeDasharray="3 3" horizontal={false} />
           <XAxis type="number" allowDecimals={false} />
-          <YAxis type="category" dataKey="name" width={100} tick={{ textAnchor: 'end' }} />
+          <YAxis 
+            type="category" 
+            dataKey="name" 
+            tickLine={false} 
+            axisLine={false}
+            tick={<CustomYAxisTick />}
+            width={10} // Minimal width since labels are now "inside"
+          />
           <Tooltip />
           <Legend formatter={renderColorfulLegendText} wrapperStyle={{ direction: 'rtl', paddingTop: '20px' }} />
           {STATUS_ORDER.map(status => (
