@@ -23,7 +23,6 @@ import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportsPage from "@/pages/Reports";
 import { useAuth } from '@/components/AuthManager';
-import { Logo } from '@/components/Logo';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner'; // Import toast directly from sonner
 
@@ -144,10 +143,7 @@ const Index = () => {
     statusUpdateMutation.mutate({ id, status });
   };
   
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    queryClient.clear();
-  };
+  // Removed handleSignOut as it's now in Sidebar
 
   const uniqueResponsibleEmployees = useMemo(() => {
     const employees = new Set<string>();
@@ -313,15 +309,7 @@ const Index = () => {
 
   return (
     <div className="space-y-6">
-      <header className="flex justify-between items-center gap-4">
-        <div className="flex items-center gap-4">
-          {session?.user?.email && (
-            <span className="text-sm text-muted-foreground">{session.user.email}</span>
-          )}
-          <Button variant="outline" onClick={handleSignOut} className="shrink-0">تسجيل الخروج</Button>
-        </div>
-        <Logo className="h-12" />
-      </header>
+      {/* Removed header section as it's now in Sidebar */}
 
       <Tabs defaultValue="tasks" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
