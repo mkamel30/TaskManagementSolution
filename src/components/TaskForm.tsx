@@ -12,8 +12,9 @@ import {
 import { Task, TaskStatus } from '@/types/task';
 import { TaskHistory } from './TaskHistory';
 import { Separator } from './ui/separator';
+import { DatePicker } from './ui/date-picker';
 
-type TaskFormData = Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'task_number'>;
+type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
 interface TaskFormProps {
   initialData?: Task;
@@ -26,7 +27,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   onSubmit, 
   onCancel 
 }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<TaskFormData>({
     required_action: initialData?.required_action || '',
     notes: initialData?.notes || '',
     status: initialData?.status || 'لم يتم',
@@ -34,10 +35,11 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     requesting_party: initialData?.requesting_party || '',
     responsible_employee: initialData?.responsible_employee || '',
     customer_code: initialData?.customer_code || '',
+    created_at: initialData?.created_at || new Date().toISOString(),
   });
 
   const handleStatusChange = (value: TaskStatus) => {
-    const newFormData: typeof formData = { ...formData, status: value };
+    const newFormData = { ...formData, status: value };
     if (value !== 'ستتم المتابعة مرة اخرى') {
       newFormData.reminder_at = '';
     }
@@ -123,6 +125,16 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           </div>
         )}
       </div>
+
+      {!initialData && (
+        <div>
+          <label className="block text-sm font-medium mb-1 text-right">تاريخ الإنشاء</label>
+          <DatePicker
+            date={new Date(formData.created_at)}
+            setDate={(date) => date && setFormData({ ...formData, created_at: date.toISOString() })}
+          />
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium mb-1 text-right">ملاحظات</label>

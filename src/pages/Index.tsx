@@ -25,7 +25,7 @@ import ReportsPage from "@/pages/Reports";
 import { useAuth } from '@/components/AuthManager';
 import { Logo } from '@/components/Logo';
 
-type TaskFormData = Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'task_number'>;
+type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
 const Index = () => {
   const queryClient = useQueryClient();
@@ -43,7 +43,7 @@ const Index = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: (newTask: TaskFormData) => createTask(newTask as any),
+    mutationFn: (newTask: TaskFormData) => createTask(newTask),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       showSuccess('تم إنشاء المهمة بنجاح');

@@ -38,7 +38,7 @@ export const getTasksByDateRange = async (startDate: string, endDate: string): P
 };
 
 
-export const createTask = async (task: Omit<Task, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+export const createTask = async (task: Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
@@ -68,9 +68,12 @@ export const updateTask = async (id: string, updates: Partial<Task>) => {
     throw fetchError || new Error('Task not found');
   }
 
+  // Do not allow updating the creation date
+  const { created_at, ...validUpdates } = updates;
+
   const { data, error } = await supabase
     .from('tasks')
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update({ ...validUpdates, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()
     .single();
