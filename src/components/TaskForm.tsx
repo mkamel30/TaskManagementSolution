@@ -31,7 +31,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     required_action: initialData?.required_action || '',
     notes: initialData?.notes || '',
     status: initialData?.status || 'لم يتم',
-    reminder_at: initialData?.reminder_at || '',
+    reminder_at: initialData?.reminder_at ? initialData.reminder_at.split('T')[0] : '',
     requesting_party: initialData?.requesting_party || '',
     responsible_employee: initialData?.responsible_employee || '',
     customer_code: initialData?.customer_code || '',
@@ -44,6 +44,15 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       newFormData.reminder_at = '';
     }
     setFormData(newFormData);
+  };
+
+  const handleCreatedAtChange = (date: Date | undefined) => {
+    if (date) {
+      // To prevent timezone issues, create a new Date object in UTC
+      // using the year, month, and day from the selected local date.
+      const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      setFormData({ ...formData, created_at: utcDate.toISOString() });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,7 +128,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             <label className="block text-sm font-medium mb-1 text-right">تاريخ التذكير</label>
             <Input
               type="date"
-              value={formData.reminder_at ? formData.reminder_at.split('T')[0] : ''}
+              value={formData.reminder_at || ''}
               onChange={(e) => setFormData({...formData, reminder_at: e.target.value})}
             />
           </div>
@@ -131,7 +140,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           <label className="block text-sm font-medium mb-1 text-right">تاريخ الإنشاء</label>
           <DatePicker
             date={new Date(formData.created_at)}
-            setDate={(date) => date && setFormData({ ...formData, created_at: date.toISOString() })}
+            setDate={handleCreatedAtChange}
           />
         </div>
       )}
