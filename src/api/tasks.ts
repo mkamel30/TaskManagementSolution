@@ -10,6 +10,15 @@ export type TaskHistoryEntry = {
   user_email: string;
 };
 
+export type Comment = {
+  id: string;
+  task_id: string;
+  user_id: string;
+  comment_text: string;
+  created_at: string;
+  user_email?: string; // Added for fetching comments with user email
+};
+
 export const getTasks = async (): Promise<Task[]> => {
   const { data, error } = await supabase.rpc('get_tasks_with_creator_email');
 
@@ -129,4 +138,44 @@ export const getTaskHistory = async (taskId: string): Promise<TaskHistoryEntry[]
   }
 
   return data || [];
+};
+
+export const getComments = async (taskId: string): Promise<Comment[]> => {
+  const { data, error } = await supabase
+    .from('comments')
+    .select(`
+      *,
+      user:user_id ( email )
+    `)
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching comments:', error);
+    throw error;
+  }
+
+  // Map the data to include user email directly
+  return data.map(comment => ({
+    ...comment,
+    user_email: comment.user?.email || 'Unknown User'
+  })) as Comment[];
+};
+
+export const addComment = async (taskId: string, commentText: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated");
+
+  const { data, error } = await supabase
+    .from('comments')
+    .insert({ task_id: taskId, user_id: user.id, comment_text: commentText })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding comment:', error);
+    throw error;
+  }
+
+  return data as Comment;
 };
