@@ -13,6 +13,7 @@ import { Task, TaskStatus } from '@/types/task';
 import { TaskHistory } from './TaskHistory';
 import { Separator } from './ui/separator';
 import { DatePicker } from './ui/date-picker';
+import { TaskComments } from './TaskComments'; // Import TaskComments
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
@@ -158,6 +159,8 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         <>
           <Separator className="my-4" />
           <TaskHistory taskId={initialData.id} />
+          <Separator className="my-4" /> {/* Add another separator */}
+          <TaskComments taskId={initialData.id} /> {/* Add TaskComments */}
         </>
       )}
 
