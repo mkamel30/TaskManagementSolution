@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Task, TaskStatus } from '@/types/task';
 
 const STATUS_ORDER: TaskStatus[] = ['لم يتم', 'ستتم المتابعة مرة اخرى', 'تم التنفيذ'];
@@ -40,7 +40,7 @@ export const TaskLoadChart: React.FC<TaskLoadChartProps> = ({ tasks }) => {
           data={data}
           margin={{
             top: 20,
-            right: 30,
+            right: 100, // Increased margin for labels on the right
             left: 20,
             bottom: 5,
           }}
@@ -52,7 +52,12 @@ export const TaskLoadChart: React.FC<TaskLoadChartProps> = ({ tasks }) => {
           <YAxis 
             type="category" 
             dataKey="name" 
-            hide={true} // Hide the axis, labels are now on the bars
+            orientation="right" // Move axis to the right
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: 'hsl(var(--destructive))', fontSize: 12 }} // Style the labels
+            width={80} // Give space for the labels
+            interval={0} // Ensure all labels are shown
           />
           <Tooltip />
           <Legend formatter={renderColorfulLegendText} wrapperStyle={{ direction: 'rtl', paddingTop: '20px' }} />
@@ -61,16 +66,6 @@ export const TaskLoadChart: React.FC<TaskLoadChartProps> = ({ tasks }) => {
           {STATUS_ORDER.map(status => (
             <Bar key={status} dataKey={status} stackId="a" fill={COLORS_MAP[status]} name={status} />
           ))}
-
-          {/* Dummy bar for labels to ensure they always render */}
-          <Bar dataKey={() => 0} stackId="b" fill="transparent" isAnimationActive={false}>
-             <LabelList 
-                dataKey="name" 
-                position="insideLeft" 
-                offset={10} 
-                style={{ fill: 'white', fontSize: '12px', fontWeight: 'bold' }} 
-             />
-          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
