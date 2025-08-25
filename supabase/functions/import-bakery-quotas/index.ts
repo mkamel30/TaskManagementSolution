@@ -86,34 +86,35 @@ serve(async (req) => {
 
         console.log(`Extracted: client_id=${client_id}, client_name=${client_name}, quota_value=${quota_value}, quota_date=${quota_date}, notes=${notes}`);
 
-        if (!client_id || !client_name) {
-          results.errors.push(`Skipping row with missing client ID or name: ${JSON.stringify(row)}`);
+        if (!client_id || !client_name || !quota_date) {
+          results.errors.push(`Skipping row with missing client ID, name, or quota date: ${JSON.stringify(row)}`);
           continue;
         }
 
+        // Check for existing quota using both client_id and quota_date
         const { data: existingQuota, error: fetchError } = await supabaseAdmin
           .from('bakery_quotas')
           .select('*')
           .eq('client_id', client_id)
+          .eq('quota_date', quota_date) // Add quota_date to the query
           .single();
 
-        if (fetchError && fetchError.code !== 'PGRST116') {
+        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means "No rows found"
           console.error('Error fetching existing quota:', fetchError);
           throw fetchError;
         }
 
         if (existingQuota) {
-          console.log('Existing quota found, attempting to update:', existingQuota.id);
+          console.log(`Existing quota found for client_id=${client_id}, quota_date=${quota_date}. Attempting to update:`, existingQuota.id);
           const { error: updateError } = await supabaseAdmin
             .from('bakery_quotas')
             .update({
               client_name,
               quota_value,
-              quota_date,
               notes,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', existingQuota.id);
+            .eq('id', existingQuota.id); // Update by ID
 
           if (updateError) {
             console.error('Error updating quota:', updateError);
@@ -122,7 +123,7 @@ serve(async (req) => {
           results.updated++;
           console.log('Quota updated successfully.');
         } else {
-          console.log('No existing quota found, attempting to insert new one.');
+          console.log(`No existing quota found for client_id=${client_id}, quota_date=${quota_date}. Attempting to insert new one.`);
           const { error: insertError } = await supabaseAdmin
             .from('bakery_quotas')
             .insert({
