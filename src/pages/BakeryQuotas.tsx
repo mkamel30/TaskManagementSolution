@@ -17,13 +17,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Search, Calendar, SortAsc, SortDesc } from 'lucide-react';
+import { PlusCircle, Search, Calendar, SortAsc, SortDesc, LayoutGrid, Table2 } from 'lucide-react';
 import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'; // Import ToggleGroup components
+import { BakeryQuotaTable } from '@/components/BakeryQuotaTable'; // Import the new table component
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
+
+interface GroupedBakeryQuota {
+  client_id: string;
+  client_name: string;
+  total_quota_value: number;
+  quotas: BakeryQuota[];
+}
 
 const BakeryQuotasPage = () => {
   const queryClient = useQueryClient();
@@ -34,6 +43,7 @@ const BakeryQuotasPage = () => {
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'created_at' | 'quota_date' | 'client_id'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards'); // New state for view mode
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
     queryKey: ['bakeryQuotas'],
@@ -151,6 +161,28 @@ const BakeryQuotasPage = () => {
     return currentQuotas;
   }, [quotas, searchQuery, sortBy, sortOrder]);
 
+  const groupedQuotas = useMemo(() => {
+    const groups = new Map<string, GroupedBakeryQuota>();
+    filteredAndSortedQuotas.forEach(quota => {
+      if (!groups.has(quota.client_id)) {
+        groups.set(quota.client_id, {
+          client_id: quota.client_id,
+          client_name: quota.client_name,
+          total_quota_value: 0,
+          quotas: [],
+        });
+      }
+      const group = groups.get(quota.client_id)!;
+      group.total_quota_value += quota.quota_value;
+      group.quotas.push(quota);
+    });
+    // Sort individual quotas within each group by quota_date
+    groups.forEach(group => {
+      group.quotas.sort((a, b) => new Date(a.quota_date).getTime() - new Date(b.quota_date).getTime());
+    });
+    return Array.from(groups.values()).sort((a, b) => a.client_name.localeCompare(b.client_name, 'ar'));
+  }, [filteredAndSortedQuotas]);
+
   // Calculate KPIs
   const totalQuotas = quotas?.length || 0;
   const overdueQuotas = quotas?.filter(quota => new Date(quota.quota_date) < new Date()).length || 0;
@@ -187,7 +219,7 @@ const BakeryQuotasPage = () => {
       </div>
 
       {/* Search and Sort Controls */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
         <div className="relative flex-grow max-w-lg">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -198,7 +230,7 @@ const BakeryQuotasPage = () => {
           />
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <Select value={sortBy} onValueChange={(value: 'created_at' | 'quota_date' | 'client_id') => setSortBy(value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="الترتيب حسب" />
@@ -218,6 +250,16 @@ const BakeryQuotasPage = () => {
           >
             {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
           </Button>
+
+          {/* View Mode Toggle */}
+          <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'cards' | 'table') => value && setViewMode(value)} className="mr-2">
+            <ToggleGroupItem value="cards" aria-label="Toggle cards view">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" aria-label="Toggle table view">
+              <Table2 className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
       </div>
 
@@ -270,12 +312,21 @@ const BakeryQuotasPage = () => {
           <TabsTrigger value="import">استيراد من Excel</TabsTrigger>
         </TabsList>
         <TabsContent value="quotas" className="space-y-4">
-          <BakeryQuotaList
-            quotas={filteredAndSortedQuotas}
-            onEdit={handleEdit}
-            onDelete={handleDeleteRequest}
-            searchQuery={searchQuery}
-          />
+          {viewMode === 'cards' ? (
+            <BakeryQuotaList
+              quotas={filteredAndSortedQuotas}
+              onEdit={handleEdit}
+              onDelete={handleDeleteRequest}
+              searchQuery={searchQuery}
+            />
+          ) : (
+            <BakeryQuotaTable
+              groupedQuotas={groupedQuotas}
+              onEdit={handleEdit}
+              onDelete={handleDeleteRequest}
+              searchQuery={searchQuery}
+            />
+          )}
         </TabsContent>
         <TabsContent value="import" className="space-y-4">
           <ImportBakeryQuotas />
