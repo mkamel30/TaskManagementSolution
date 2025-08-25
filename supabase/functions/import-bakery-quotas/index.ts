@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { parse } from 'https://esm.sh/xlsx@0.18.5';
+import * as XLSX from 'https://esm.sh/xlsx@0.18.5'; // Changed import to import all as XLSX
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,10 +31,10 @@ serve(async (req) => {
 
     // Parse the Excel file
     const buffer = await file.arrayBuffer();
-    const workbook = parse(buffer);
+    const workbook = XLSX.read(buffer); // Changed from parse(buffer) to XLSX.read(buffer)
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = worksheet ? worksheet['!ref'] ? workbook.utils.sheet_to_json(worksheet) : [] : [];
+    const data = worksheet ? worksheet['!ref'] ? XLSX.utils.sheet_to_json(worksheet) : [] : []; // Changed to XLSX.utils.sheet_to_json
 
     if (data.length === 0) {
       return new Response(JSON.stringify({ error: 'No data found in the Excel file' }), {
