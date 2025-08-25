@@ -43,6 +43,9 @@ serve(async (req) => {
       });
     }
 
+    // Log the first row to see the actual headers
+    console.log('Excel headers:', Object.keys(data[0]));
+
     // Process and insert data
     const results = {
       total: data.length,
@@ -53,11 +56,12 @@ serve(async (req) => {
 
     for (const row of data) {
       try {
-        const client_id = row['معرّ العميل'] || row['Client ID'] || '';
-        const client_name = row['اسم العميل'] || row['Client Name'] || '';
-        const quota_value = parseFloat(row['قيمة الحصة'] || row['Quota Value'] || '0');
-        const quota_date = row['تاريخ الحصة'] || row['Quota Date'] || new Date().toISOString().split('T')[0];
-        const notes = row['ملاحظات'] || row['Notes'] || '';
+        // Map Excel headers to database columns
+        const client_id = row['معرّ العميل'] || row['Client ID'] || row['client_id'] || '';
+        const client_name = row['اسم العميل'] || row['Client Name'] || row['client_name'] || '';
+        const quota_value = parseFloat(row['قيمة الحصة'] || row['Quota Value'] || row['quota_value'] || '0');
+        const quota_date = row['تاريخ الحصة'] || row['Quota Date'] || row['quota_date'] || new Date().toISOString().split('T')[0];
+        const notes = row['ملاحظات'] || row['Notes'] || row['notes'] || '';
 
         if (!client_id || !client_name) {
           results.errors.push(`Skipping row with missing client ID or name: ${JSON.stringify(row)}`);
