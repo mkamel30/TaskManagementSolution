@@ -50,7 +50,6 @@ export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuot
     console.error('Error fetching bakery quota history:', error);
     throw error;
   }
-  console.log(`History for quotaId ${quotaId}:`, data); // Added log for history data
 
   return data.map(entry => ({
     ...entry,
