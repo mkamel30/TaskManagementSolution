@@ -177,6 +177,7 @@ const BakeryQuotasPage = () => {
       return 0;
     });
 
+    console.log("Filtered and Sorted Quotas (after search):", currentQuotas); // Added log for search results
     return currentQuotas;
   }, [quotas, searchQuery, sortBy, sortOrder]);
 
@@ -203,8 +204,8 @@ const BakeryQuotasPage = () => {
 
   // Debugging useEffect
   useEffect(() => {
-    console.log("Bakery Quotas:", quotas);
-    console.log("History Counts Map:", historyCounts);
+    console.log("Bakery Quotas (raw data):", quotas);
+    console.log("History Counts Map (from RPC):", historyCounts);
     if (groupedQuotas.length > 0) {
       console.log("First Grouped Quota (client_id, name, total_changes_count):", 
         groupedQuotas[0].client_id, 
