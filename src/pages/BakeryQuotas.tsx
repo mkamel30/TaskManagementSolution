@@ -17,12 +17,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Search } from 'lucide-react';
+import { PlusCircle, Search, Calendar, SortAsc, SortDesc } from 'lucide-react';
 import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { KPICards } from '@/components/KPICards';
 import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
-import { Task, TaskStatus } from '@/types/task';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
@@ -33,6 +32,8 @@ const BakeryQuotasPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'created_at' | 'quota_date' | 'client_id'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
     queryKey: ['bakeryQuotas'],
@@ -115,64 +116,46 @@ const BakeryQuotasPage = () => {
     setIsFormDialogOpen(open);
   };
 
-  const filteredQuotas = useMemo(() => {
+  const filteredAndSortedQuotas = useMemo(() => {
     if (!quotas) return [];
     
-    if (!searchQuery) return quotas;
+    let currentQuotas = quotas;
 
-    const query = searchQuery.toLowerCase();
-    return quotas.filter(quota =>
-      quota.client_id.toLowerCase().includes(query) ||
-      quota.client_name.toLowerCase().includes(query) ||
-      quota.notes?.toLowerCase().includes(query)
-    );
-  }, [quotas, searchQuery]);
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      currentQuotas = currentQuotas.filter(quota =>
+        quota.client_id.toLowerCase().includes(query) ||
+        quota.client_name.toLowerCase().includes(query) ||
+        quota.notes?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply sorting
+    currentQuotas.sort((a, b) => {
+      let valA: any, valB: any;
+
+      if (sortBy === 'created_at' || sortBy === 'quota_date') {
+        valA = a[sortBy] ? new Date(a[sortBy]).getTime() : (sortBy === 'quota_date' ? Infinity : -Infinity);
+        valB = b[sortBy] ? new Date(b[sortBy]).getTime() : (sortBy === 'quota_date' ? Infinity : -Infinity);
+      } else { // client_id
+        valA = a[sortBy] || '';
+        valB = b[sortBy] || '';
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return currentQuotas;
+  }, [quotas, searchQuery, sortBy, sortOrder]);
 
   // Calculate KPIs
   const totalQuotas = quotas?.length || 0;
   const overdueQuotas = quotas?.filter(quota => new Date(quota.quota_date) < new Date()).length || 0;
   const activeQuotas = totalQuotas - overdueQuotas;
   const totalValue = quotas?.reduce((sum, quota) => sum + quota.quota_value, 0) || 0;
-
-  // Create mock tasks for KPICards
-  const mockTasksForKPI: Task[] = [
-    {
-      id: '',
-      user_id: '',
-      task_number: '',
-      required_action: '',
-      status: 'لم يتم' as TaskStatus,
-      created_at: '',
-      updated_at: '',
-    },
-    {
-      id: '',
-      user_id: '',
-      task_number: '',
-      required_action: '',
-      status: 'لم يتم' as TaskStatus,
-      created_at: '',
-      updated_at: '',
-    },
-    {
-      id: '',
-      user_id: '',
-      task_number: '',
-      required_action: '',
-      status: 'تم التنفيذ' as TaskStatus,
-      created_at: '',
-      updated_at: '',
-    },
-    {
-      id: '',
-      user_id: '',
-      task_number: '',
-      required_action: '',
-      status: 'تم التنفيذ' as TaskStatus,
-      created_at: '',
-      updated_at: '',
-    },
-  ];
 
   if (isLoading) return <div className="text-center p-8">جاري تحميل الحصص التأمينية...</div>;
   if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب الحصص التأمينية</div>;
@@ -203,17 +186,83 @@ const BakeryQuotasPage = () => {
         </Dialog>
       </div>
 
-      <div className="relative w-full max-w-lg">
-        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="بحث في الحصص التأمينية..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pr-10 text-right"
-        />
+      {/* Search and Sort Controls */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-grow max-w-lg">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="بحث في الحصص التأمينية..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-10 text-right"
+          />
+        </div>
+        
+        <div className="flex gap-2">
+          <Select value={sortBy} onValueChange={(value: 'created_at' | 'quota_date' | 'client_id') => setSortBy(value)}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="الترتيب حسب" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="created_at">تاريخ الإنشاء</SelectItem>
+              <SelectItem value="quota_date">تاريخ الحصة</SelectItem>
+              <SelectItem value="client_id">كود العميل</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="flex items-center gap-1"
+          >
+            {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
 
-      <KPICards tasks={mockTasksForKPI} />
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground text-right">إجمالي الحصص</p>
+              <p className="text-2xl font-bold">{totalQuotas}</p>
+            </div>
+            <Calendar className="h-8 w-8 text-blue-500" />
+          </div>
+        </div>
+        
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground text-right">حصص متأخرة</p>
+              <p className="text-2xl font-bold text-red-500">{overdueQuotas}</p>
+            </div>
+            <Calendar className="h-8 w-8 text-red-500" />
+          </div>
+        </div>
+        
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground text-right">حصص نشطة</p>
+              <p className="text-2xl font-bold text-green-500">{activeQuotas}</p>
+            </div>
+            <Calendar className="h-8 w-8 text-green-500" />
+          </div>
+        </div>
+        
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground text-right">إجمالي القيمة</p>
+              <p className="text-2xl font-bold">{totalValue.toLocaleString('ar-EG')}</p>
+            </div>
+            <Calendar className="h-8 w-8 text-purple-500" />
+          </div>
+        </div>
+      </div>
 
       <Tabs defaultValue="quotas" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -222,7 +271,7 @@ const BakeryQuotasPage = () => {
         </TabsList>
         <TabsContent value="quotas" className="space-y-4">
           <BakeryQuotaList
-            quotas={filteredQuotas}
+            quotas={filteredAndSortedQuotas}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             searchQuery={searchQuery}
