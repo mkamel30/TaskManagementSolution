@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import * as XLSX from 'https://esm.sh/xlsx@0.18.5'; // Changed import to import all as XLSX
+import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,18 +23,16 @@ serve(async (req) => {
       });
     }
 
-    // Create a Supabase client with the service role key to bypass RLS for this specific query
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Parse the Excel file
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer); // Changed from parse(buffer) to XLSX.read(buffer)
+    const workbook = XLSX.read(buffer);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = worksheet ? worksheet['!ref'] ? XLSX.utils.sheet_to_json(worksheet) : [] : []; // Changed to XLSX.utils.sheet_to_json
+    const data = worksheet ? worksheet['!ref'] ? XLSX.utils.sheet_to_json(worksheet) : [] : [];
 
     if (data.length === 0) {
       return new Response(JSON.stringify({ error: 'No data found in the Excel file' }), {
@@ -43,10 +41,8 @@ serve(async (req) => {
       });
     }
 
-    // Log the first row to see the actual headers
     console.log('Excel headers:', Object.keys(data[0]));
 
-    // Process and insert data
     const results = {
       total: data.length,
       inserted: 0,
@@ -55,32 +51,59 @@ serve(async (req) => {
     };
 
     for (const row of data) {
+      console.log('Processing row:', row); // Log the raw row data
       try {
-        // Map Excel headers to database columns
-        const client_id = row['BAKERY_CODE'] || '';
-        const client_name = row['BAKERY_NAME'] || '';
-        const quota_value = parseFloat(row['NEW_AVG_'] || '0');
-        const quota_date = row['TRUNC_A_OPE_DATE_'] || new Date().toISOString().split('T')[0];
-        const notes = `Supply: ${row['SUPPLY_NAME'] || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME'] || ''}`;
+        const client_id = row['BAKERY_CODE']?.toString() || ''; // Ensure client_id is string
+        const client_name = row['BAKERY_NAME']?.toString() || ''; // Ensure client_name is string
+        const quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0'); // Ensure value is string before parseFloat
+        const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
+        let quota_date: string;
+
+        // Attempt to parse date, fallback to current date if invalid
+        if (raw_quota_date) {
+          // Assuming raw_quota_date might be a number (Excel date) or a string
+          if (typeof raw_quota_date === 'number') {
+            // Excel dates are days since 1900-01-01 (or 1904-01-01 for Mac)
+            // Adjust for Excel's epoch (1900-01-01) and potential leap year bug
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // Dec 30, 1899
+            const date = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
+            quota_date = date.toISOString().split('T')[0];
+          } else {
+            // Try parsing as string, e.g., 'YYYY-MM-DD'
+            const parsedDate = new Date(raw_quota_date);
+            if (!isNaN(parsedDate.getTime())) {
+              quota_date = parsedDate.toISOString().split('T')[0];
+            } else {
+              console.warn(`Invalid date format for TRUNC_A_OPE_DATE_: ${raw_quota_date}. Using current date.`);
+              quota_date = new Date().toISOString().split('T')[0];
+            }
+          }
+        } else {
+          quota_date = new Date().toISOString().split('T')[0];
+        }
+
+        const notes = `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`;
+
+        console.log(`Extracted: client_id=${client_id}, client_name=${client_name}, quota_value=${quota_value}, quota_date=${quota_date}, notes=${notes}`);
 
         if (!client_id || !client_name) {
           results.errors.push(`Skipping row with missing client ID or name: ${JSON.stringify(row)}`);
           continue;
         }
 
-        // Check if quota already exists for this client
         const { data: existingQuota, error: fetchError } = await supabaseAdmin
           .from('bakery_quotas')
           .select('*')
           .eq('client_id', client_id)
           .single();
 
-        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows returned
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          console.error('Error fetching existing quota:', fetchError);
           throw fetchError;
         }
 
         if (existingQuota) {
-          // Update existing quota
+          console.log('Existing quota found, attempting to update:', existingQuota.id);
           const { error: updateError } = await supabaseAdmin
             .from('bakery_quotas')
             .update({
@@ -92,10 +115,14 @@ serve(async (req) => {
             })
             .eq('id', existingQuota.id);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error('Error updating quota:', updateError);
+            throw updateError;
+          }
           results.updated++;
+          console.log('Quota updated successfully.');
         } else {
-          // Create new quota
+          console.log('No existing quota found, attempting to insert new one.');
           const { error: insertError } = await supabaseAdmin
             .from('bakery_quotas')
             .insert({
@@ -106,11 +133,16 @@ serve(async (req) => {
               notes,
             });
 
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.error('Error inserting new quota:', insertError);
+            throw insertError;
+          }
           results.inserted++;
+          console.log('New quota inserted successfully.');
         }
-      } catch (error) {
-        results.errors.push(`Error processing row ${JSON.stringify(row)}: ${error.message}`);
+      } catch (error: any) {
+        console.error('Error processing row:', error);
+        results.errors.push(`Error processing row ${JSON.stringify(row)}: ${error.message || error}`);
       }
     }
 
@@ -119,9 +151,9 @@ serve(async (req) => {
       status: 200,
     });
 
-  } catch (error) {
-    console.error('Error in import-bakery-quotas edge function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: any) {
+    console.error('Error in import-bakery-quotas edge function (outer catch):', error);
+    return new Response(JSON.stringify({ error: error.message || error }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
