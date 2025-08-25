@@ -14,12 +14,11 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Edit, Trash2, History } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Highlighter } from './Highlighter';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import { QuotaHistoryRow } from './QuotaHistoryRow';
 import { GroupedBakeryQuota } from '@/pages/BakeryQuotas';
 
 interface BakeryQuotaTableProps {
@@ -78,7 +77,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                       {group.total_changes_count}
                     </TableCell>
                     <TableCell>
-                      {/* No actions for the group row itself, only for individual quotas */}
+                      {/* لا توجد إجراءات للصف الرئيسي للمجموعة، فقط للحصص الفردية */}
                     </TableCell>
                   </TableRow>
                   <CollapsibleContent asChild>
@@ -92,7 +91,6 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                                 <TableHead className="text-right w-[100px]">القيمة</TableHead>
                                 <TableHead className="text-right">ملاحظات</TableHead>
                                 <TableHead className="text-right w-[100px]">الإجراءات</TableHead>
-                                <TableHead className="text-right w-[100px]">السجل</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -115,18 +113,6 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                                           <Trash2 size={16} />
                                         </Button>
                                       </div>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Collapsible>
-                                        <CollapsibleTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <History size={16} />
-                                          </Button>
-                                        </CollapsibleTrigger>
-                                        <CollapsibleContent>
-                                          <QuotaHistoryRow quotaId={quota.id} />
-                                        </CollapsibleContent>
-                                      </Collapsible>
                                     </TableCell>
                                   </TableRow>
                                 </React.Fragment>
