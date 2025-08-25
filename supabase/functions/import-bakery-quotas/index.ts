@@ -57,11 +57,11 @@ serve(async (req) => {
     for (const row of data) {
       try {
         // Map Excel headers to database columns
-        const client_id = row['كود العميل'] || row['Client ID'] || row['client_id'] || '';
-        const client_name = row['اسم العميل'] || row['Client Name'] || row['client_name'] || '';
-        const quota_value = parseFloat(row['قيمة الحصة'] || row['Quota Value'] || row['quota_value'] || '0');
-        const quota_date = row['تاريخ الحصة'] || row['Quota Date'] || row['quota_date'] || new Date().toISOString().split('T')[0];
-        const notes = row['ملاحظات'] || row['Notes'] || row['notes'] || '';
+        const client_id = row['BAKERY_CODE'] || '';
+        const client_name = row['BAKERY_NAME'] || '';
+        const quota_value = parseFloat(row['NEW_AVG_'] || '0');
+        const quota_date = row['TRUNC_A_OPE_DATE_'] || new Date().toISOString().split('T')[0];
+        const notes = `Supply: ${row['SUPPLY_NAME'] || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME'] || ''}`;
 
         if (!client_id || !client_name) {
           results.errors.push(`Skipping row with missing client ID or name: ${JSON.stringify(row)}`);
