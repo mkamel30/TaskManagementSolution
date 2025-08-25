@@ -201,23 +201,6 @@ const BakeryQuotasPage = () => {
     return Array.from(groups.values()).sort((a, b) => a.client_name.localeCompare(b.client_name, 'ar'));
   }, [filteredAndSortedQuotas, historyCounts]);
 
-  // Debugging useEffect
-  useEffect(() => {
-    console.log("Bakery Quotas:", quotas);
-    console.log("History Counts Map:", historyCounts);
-    if (groupedQuotas.length > 0) {
-      console.log("First Grouped Quota (client_id, name, total_changes_count):", 
-        groupedQuotas[0].client_id, 
-        groupedQuotas[0].client_name, 
-        groupedQuotas[0].total_changes_count
-      );
-      if (quotas && quotas.length > 0 && historyCounts) {
-        const firstQuotaClientId = quotas[0].client_id;
-        console.log(`History count for first quota's client_id (${firstQuotaClientId}):`, historyCounts.get(firstQuotaClientId));
-      }
-    }
-  }, [quotas, historyCounts, groupedQuotas]);
-
 
   const totalQuotas = quotas?.length || 0;
   const overdueQuotas = quotas?.filter(quota => new Date(quota.quota_date) < new Date()).length || 0;
