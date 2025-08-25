@@ -154,8 +154,8 @@ export const importBakeryQuotasFromExcel = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
 
-  // Use the full URL path for the edge function
-  const { data, error } = await supabase.functions.invoke('https://wxhinjdceqneufvanfqe.supabase.co/functions/v1/import-bakery-quotas', {
+  // Use the correct function name without the full URL
+  const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
     body: formData,
   });
 
