@@ -22,15 +22,16 @@ import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'; // Import ToggleGroup components
-import { BakeryQuotaTable } from '@/components/BakeryQuotaTable'; // Import the new table component
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { BakeryQuotaTable } from '@/components/BakeryQuotaTable';
+import { supabase } from '@/integrations/supabase/client';
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
-interface GroupedBakeryQuota {
+export interface GroupedBakeryQuota {
   client_id: string;
   client_name: string;
-  total_quota_value: number;
+  total_changes_count: number;
   quotas: BakeryQuota[];
 }
 
@@ -43,17 +44,35 @@ const BakeryQuotasPage = () => {
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'created_at' | 'quota_date' | 'client_id'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards'); // New state for view mode
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
     queryKey: ['bakeryQuotas'],
     queryFn: getBakeryQuotas
   });
 
+  const { data: historyCounts } = useQuery({
+    queryKey: ['bakeryQuotaHistoryCounts'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_client_history_counts');
+      if (error) {
+        console.error("Error fetching history counts:", error);
+        return new Map<string, number>();
+      }
+      const countMap = new Map<string, number>();
+      (data as { client_id: string; change_count: number }[]).forEach(item => {
+        countMap.set(item.client_id, item.change_count);
+      });
+      return countMap;
+    },
+    enabled: !!quotas,
+  });
+
   const createMutation = useMutation({
     mutationFn: (newQuota: BakeryQuotaFormData) => createBakeryQuota(newQuota),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistoryCounts'] });
       showSuccess('تم إنشاء الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
     },
@@ -66,6 +85,7 @@ const BakeryQuotasPage = () => {
     mutationFn: (variables: { id: string, updates: Partial<BakeryQuotaFormData> }) => updateBakeryQuota(variables.id, variables.updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistoryCounts'] });
       showSuccess('تم تحديث الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
       setEditingQuota(null);
@@ -79,6 +99,7 @@ const BakeryQuotasPage = () => {
     mutationFn: deleteBakeryQuota,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistoryCounts'] });
       showSuccess('تم حذف الحصة التأمينية بنجاح');
     },
     onError: (error) => {
@@ -131,7 +152,6 @@ const BakeryQuotasPage = () => {
     
     let currentQuotas = quotas;
 
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       currentQuotas = currentQuotas.filter(quota =>
@@ -141,14 +161,13 @@ const BakeryQuotasPage = () => {
       );
     }
 
-    // Apply sorting
     currentQuotas.sort((a, b) => {
       let valA: any, valB: any;
 
       if (sortBy === 'created_at' || sortBy === 'quota_date') {
         valA = a[sortBy] ? new Date(a[sortBy]).getTime() : (sortBy === 'quota_date' ? Infinity : -Infinity);
         valB = b[sortBy] ? new Date(b[sortBy]).getTime() : (sortBy === 'quota_date' ? Infinity : -Infinity);
-      } else { // client_id
+      } else {
         valA = a[sortBy] || '';
         valB = b[sortBy] || '';
       }
@@ -168,22 +187,20 @@ const BakeryQuotasPage = () => {
         groups.set(quota.client_id, {
           client_id: quota.client_id,
           client_name: quota.client_name,
-          total_quota_value: 0,
+          total_changes_count: historyCounts?.get(quota.client_id) || 0,
           quotas: [],
         });
       }
       const group = groups.get(quota.client_id)!;
-      group.total_quota_value += quota.quota_value;
       group.quotas.push(quota);
     });
-    // Sort individual quotas within each group by quota_date
+    
     groups.forEach(group => {
-      group.quotas.sort((a, b) => new Date(a.quota_date).getTime() - new Date(b.quota_date).getTime());
+      group.quotas.sort((a, b) => new Date(b.quota_date).getTime() - new Date(a.quota_date).getTime());
     });
     return Array.from(groups.values()).sort((a, b) => a.client_name.localeCompare(b.client_name, 'ar'));
-  }, [filteredAndSortedQuotas]);
+  }, [filteredAndSortedQuotas, historyCounts]);
 
-  // Calculate KPIs
   const totalQuotas = quotas?.length || 0;
   const overdueQuotas = quotas?.filter(quota => new Date(quota.quota_date) < new Date()).length || 0;
   const activeQuotas = totalQuotas - overdueQuotas;
@@ -218,7 +235,6 @@ const BakeryQuotasPage = () => {
         </Dialog>
       </div>
 
-      {/* Search and Sort Controls */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
         <div className="relative flex-grow max-w-lg">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -251,7 +267,6 @@ const BakeryQuotasPage = () => {
             {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
           </Button>
 
-          {/* View Mode Toggle */}
           <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'cards' | 'table') => value && setViewMode(value)} className="mr-2">
             <ToggleGroupItem value="cards" aria-label="Toggle cards view">
               <LayoutGrid className="h-4 w-4" />
@@ -263,7 +278,6 @@ const BakeryQuotasPage = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border">
           <div className="flex items-center justify-between">

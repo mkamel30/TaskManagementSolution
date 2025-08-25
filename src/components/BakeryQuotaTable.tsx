@@ -14,18 +14,13 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit, Trash2, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Highlighter } from './Highlighter';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-
-interface GroupedBakeryQuota {
-  client_id: string;
-  client_name: string;
-  total_quota_value: number;
-  quotas: BakeryQuota[];
-}
+import { QuotaHistoryRow } from './QuotaHistoryRow';
+import { GroupedBakeryQuota } from '@/pages/BakeryQuotas';
 
 interface BakeryQuotaTableProps {
   groupedQuotas: GroupedBakeryQuota[];
@@ -48,7 +43,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
             <TableHead className="w-[50px] text-right">التفاصيل</TableHead>
             <TableHead className="text-right">كود العميل</TableHead>
             <TableHead className="text-right">اسم العميل</TableHead>
-            <TableHead className="text-right">إجمالي الحصة</TableHead>
+            <TableHead className="text-right">إجمالي التغييرات</TableHead>
             <TableHead className="text-right w-[100px]">الإجراءات</TableHead>
           </TableRow>
         </TableHeader>
@@ -80,7 +75,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                       <Highlighter text={group.client_name} highlight={searchQuery} />
                     </TableCell>
                     <TableCell className="font-bold">
-                      {group.total_quota_value.toLocaleString('ar-EG')}
+                      {group.total_changes_count}
                     </TableCell>
                     <TableCell>
                       {/* No actions for the group row itself, only for individual quotas */}
@@ -97,29 +92,44 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                                 <TableHead className="text-right w-[100px]">القيمة</TableHead>
                                 <TableHead className="text-right">ملاحظات</TableHead>
                                 <TableHead className="text-right w-[100px]">الإجراءات</TableHead>
+                                <TableHead className="text-right w-[100px]">السجل</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {group.quotas.map((quota) => (
-                                <TableRow key={quota.id} className="hover:bg-gray-200 dark:hover:bg-gray-700">
-                                  <TableCell>
-                                    {format(new Date(quota.quota_date), 'd MMMM yyyy', { locale: ar })}
-                                  </TableCell>
-                                  <TableCell>{quota.quota_value.toLocaleString('ar-EG')}</TableCell>
-                                  <TableCell>
-                                    <Highlighter text={quota.notes || ''} highlight={searchQuery} />
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex gap-1 justify-end">
-                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(quota)}>
-                                        <Edit size={16} />
-                                      </Button>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(quota.id)}>
-                                        <Trash2 size={16} />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
+                                <React.Fragment key={quota.id}>
+                                  <TableRow className="hover:bg-gray-200 dark:hover:bg-gray-700">
+                                    <TableCell>
+                                      {format(new Date(quota.quota_date), 'd MMMM yyyy', { locale: ar })}
+                                    </TableCell>
+                                    <TableCell>{quota.quota_value.toLocaleString('ar-EG')}</TableCell>
+                                    <TableCell>
+                                      <Highlighter text={quota.notes || ''} highlight={searchQuery} />
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex gap-1 justify-end">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(quota)}>
+                                          <Edit size={16} />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(quota.id)}>
+                                          <Trash2 size={16} />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <History size={16} />
+                                          </Button>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <QuotaHistoryRow quotaId={quota.id} />
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    </TableCell>
+                                  </TableRow>
+                                </React.Fragment>
                               ))}
                             </TableBody>
                           </Table>
