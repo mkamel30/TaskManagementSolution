@@ -2,6 +2,10 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Task, TaskStatus } from '@/types/task';
 
+interface TaskLoadChartProps {
+  tasks: Task[];
+}
+
 const STATUS_ORDER: TaskStatus[] = ['لم يتم', 'ستتم المتابعة مرة اخرى', 'تم التنفيذ'];
 const COLORS_MAP: Record<TaskStatus, string> = {
   'لم يتم': 'hsl(var(--destructive))', // Red

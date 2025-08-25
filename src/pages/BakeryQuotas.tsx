@@ -22,6 +22,7 @@ import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KPICards } from '@/components/KPICards';
 import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
+import { Task } from '@/types/task';
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
@@ -133,6 +134,46 @@ const BakeryQuotasPage = () => {
   const activeQuotas = totalQuotas - overdueQuotas;
   const totalValue = quotas?.reduce((sum, quota) => sum + quota.quota_value, 0) || 0;
 
+  // Create mock tasks for KPICards
+  const mockTasksForKPI: Task[] = [
+    {
+      id: '',
+      user_id: '',
+      task_number: '',
+      required_action: '',
+      status: 'لم يتم' as const,
+      created_at: '',
+      updated_at: '',
+    },
+    {
+      id: '',
+      user_id: '',
+      task_number: '',
+      required_action: '',
+      status: 'متأخرة' as const,
+      created_at: '',
+      updated_at: '',
+    },
+    {
+      id: '',
+      user_id: '',
+      task_number: '',
+      required_action: '',
+      status: 'نشطة' as const,
+      created_at: '',
+      updated_at: '',
+    },
+    {
+      id: '',
+      user_id: '',
+      task_number: '',
+      required_action: '',
+      status: 'إجمالي' as const,
+      created_at: '',
+      updated_at: '',
+    },
+  ];
+
   if (isLoading) return <div className="text-center p-8">جاري تحميل الحصص التأمينية...</div>;
   if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب الحصص التأمينية</div>;
 
@@ -172,14 +213,7 @@ const BakeryQuotasPage = () => {
         />
       </div>
 
-      <KPICards
-        quotas={[
-          { id: '', client_id: '', client_name: '', quota_value: totalQuotas, quota_date: '', notes: '', created_at: '', updated_at: '' },
-          { id: '', client_id: '', client_name: '', quota_value: overdueQuotas, quota_date: '', notes: '', created_at: '', updated_at: '' },
-          { id: '', client_id: '', client_name: '', quota_value: activeQuotas, quota_date: '', notes: '', created_at: '', updated_at: '' },
-          { id: '', client_id: '', client_name: '', quota_value: totalValue, quota_date: '', notes: '', created_at: '', updated_at: '' },
-        ]}
-      />
+      <KPICards tasks={mockTasksForKPI} />
 
       <Tabs defaultValue="quotas" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
