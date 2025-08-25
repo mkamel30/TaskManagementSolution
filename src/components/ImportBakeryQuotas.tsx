@@ -29,13 +29,23 @@ export const ImportBakeryQuotas: React.FC = () => {
     const loadingToast = toast.loading('جاري معالجة الملف...');
 
     try {
-      await importBakeryQuotasFromExcel(file);
-      toast.success('تم استيراد البيانات بنجاح!');
+      const result = await importBakeryQuotasFromExcel(file);
+      console.log('Import result:', result);
+      
+      if (result && result.inserted > 0) {
+        toast.success(`تم استيراد ${result.inserted} سجل بنجاح!`);
+      } else if (result && result.updated > 0) {
+        toast.success(`تم تحديث ${result.updated} سجل بنجاح!`);
+      } else {
+        toast.success('تمت معالجة الملف بنجاح!');
+      }
+      
       setFile(null);
       // Clear the file input
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     } catch (error: any) {
+      console.error('Import error:', error);
       toast.error(`حدث خطأ أثناء الاستيراد: ${error.message}`);
     } finally {
       setIsUploading(false);
