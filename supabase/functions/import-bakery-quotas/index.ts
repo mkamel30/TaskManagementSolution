@@ -57,7 +57,7 @@ serve(async (req) => {
     for (const row of data) {
       try {
         // Map Excel headers to database columns
-        const client_id = row['معرّ العميل'] || row['Client ID'] || row['client_id'] || '';
+        const client_id = row['كود العميل'] || row['Client ID'] || row['client_id'] || '';
         const client_name = row['اسم العميل'] || row['Client Name'] || row['client_name'] || '';
         const quota_value = parseFloat(row['قيمة الحصة'] || row['Quota Value'] || row['quota_value'] || '0');
         const quota_date = row['تاريخ الحصة'] || row['Quota Date'] || row['quota_date'] || new Date().toISOString().split('T')[0];
