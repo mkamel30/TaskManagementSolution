@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, ListTodo, BarChart3, LogOut } from 'lucide-react';
+import { Menu, ListTodo, BarChart3, LogOut, Building } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/components/AuthManager';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,6 +53,7 @@ export const Sidebar: React.FC = () => {
   const navigationItems = [
     { to: '/', label: 'المهام', icon: ListTodo, isActive: location.pathname === '/' },
     { to: '/reports', label: 'التقارير', icon: BarChart3, isActive: location.pathname === '/reports' },
+    { to: '/bakery-quotas', label: 'الحصص التأمينية للمخابز', icon: Building, isActive: location.pathname === '/bakery-quotas' },
   ];
 
   const sidebarContent = (
