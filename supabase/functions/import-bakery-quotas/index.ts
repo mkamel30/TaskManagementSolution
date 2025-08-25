@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { createReadStream } from 'https://deno.land/std@0.190.0/node/fs.ts';
 import { parse } from 'https://esm.sh/xlsx@0.18.5';
 
 const corsHeaders = {
