@@ -22,7 +22,7 @@ import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KPICards } from '@/components/KPICards';
 import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
-import { Task } from '@/types/task';
+import { Task, TaskStatus } from '@/types/task';
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
@@ -141,7 +141,7 @@ const BakeryQuotasPage = () => {
       user_id: '',
       task_number: '',
       required_action: '',
-      status: 'لم يتم' as const,
+      status: 'لم يتم' as TaskStatus,
       created_at: '',
       updated_at: '',
     },
@@ -150,7 +150,7 @@ const BakeryQuotasPage = () => {
       user_id: '',
       task_number: '',
       required_action: '',
-      status: 'متأخرة' as const,
+      status: 'لم يتم' as TaskStatus,
       created_at: '',
       updated_at: '',
     },
@@ -159,7 +159,7 @@ const BakeryQuotasPage = () => {
       user_id: '',
       task_number: '',
       required_action: '',
-      status: 'نشطة' as const,
+      status: 'تم التنفيذ' as TaskStatus,
       created_at: '',
       updated_at: '',
     },
@@ -168,7 +168,7 @@ const BakeryQuotasPage = () => {
       user_id: '',
       task_number: '',
       required_action: '',
-      status: 'إجمالي' as const,
+      status: 'تم التنفيذ' as TaskStatus,
       created_at: '',
       updated_at: '',
     },
