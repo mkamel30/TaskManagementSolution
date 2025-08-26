@@ -34,6 +34,7 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
     quota_value: isAddingForExistingClient ? 0 : (initialData?.quota_value || 0),
     quota_date: isAddingForExistingClient ? new Date().toISOString().split('T')[0] : (initialData?.quota_date ? new Date(initialData.quota_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
     notes: initialData?.notes || '',
+    discount_type: initialData?.discount_type || '', // New: Initialize discount_type
   });
   const [previousQuotaValue, setPreviousQuotaValue] = useState<number | null>(null);
   const [isFetchingPreviousQuota, setIsFetchingPreviousQuota] = useState(false);
@@ -51,6 +52,9 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
           if (existingQuota) {
             setPreviousQuotaValue(existingQuota.quota_value);
             setExistingQuotaForClientId(existingQuota);
+            if (!formData.client_name) {
+              setFormData(prev => ({ ...prev, client_name: existingQuota.client_name }));
+            }
           } else {
             setPreviousQuotaValue(null);
             setExistingQuotaForClientId(null);
@@ -84,6 +88,10 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
           setExistingQuotaForClientId(existingQuota);
           if (!formData.client_name) {
             setFormData(prev => ({ ...prev, client_name: existingQuota.client_name }));
+          }
+          // Also set discount_type if it exists on the fetched quota
+          if (!formData.discount_type && existingQuota.discount_type) {
+            setFormData(prev => ({ ...prev, discount_type: existingQuota.discount_type }));
           }
         } else {
           setPreviousQuotaValue(null);
@@ -174,6 +182,16 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
           value={formData.quota_date}
           onChange={(e) => handleInputChange('quota_date', e.target.value)}
           required
+        />
+      </div>
+
+      <div>
+        <Label className="block text-sm font-medium mb-1 text-right">نوع الخصم</Label>
+        <Input
+          value={formData.discount_type}
+          onChange={(e) => handleInputChange('discount_type', e.target.value)}
+          dir="rtl"
+          placeholder="مثال: خصم حكومي، خصم خاص"
         />
       </div>
 

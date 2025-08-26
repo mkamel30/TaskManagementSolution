@@ -64,7 +64,8 @@ serve(async (req) => {
         const old_quota_value = parseFloat(row['OLD_AVG_']?.toString() || '0');
         const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
-        
+        const discount_type = row['DISCOUNT_TYPE']?.toString().trim() || null; // New: Read discount type
+
         let quota_date: string;
         if (raw_quota_date) {
           if (typeof raw_quota_date === 'number') {
@@ -83,7 +84,8 @@ serve(async (req) => {
           quota_date = new Date().toISOString().split('T')[0];
         }
 
-        const notes = `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`;
+        // Removed supply and sub-dept from notes generation
+        const notes = row['NOTES']?.toString().trim() || null; // Assuming a 'NOTES' column in Excel, or null
 
         if (!client_id || !client_name) {
           errors.push(`Skipping row with missing client_id or client_name: ${JSON.stringify(row)}`);
@@ -95,7 +97,8 @@ serve(async (req) => {
           client_name: client_name,
           quota_value: new_quota_value,
           quota_date: quota_date,
-          notes: `Last updated from Excel import.`,
+          notes: notes, // Use the new notes
+          discount_type: discount_type, // New: Add discount_type
           updated_at: new Date().toISOString(), // Ensure updated_at is set
         });
 
@@ -107,7 +110,7 @@ serve(async (req) => {
           old_quota_value: old_quota_value,
           new_quota_value: new_quota_value,
           changed_at: quota_date, // Use quota_date for changed_at
-          notes: notes,
+          notes: notes, // Use the new notes
           trunc_a_ope_date_: quota_date, // Also set this column
         });
 

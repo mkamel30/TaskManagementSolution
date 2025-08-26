@@ -7,6 +7,7 @@ export type BakeryQuota = {
   quota_value: number;
   quota_date: string; // This will be stored as YYYY-MM-DD for database compatibility
   notes?: string;
+  discount_type?: string; // New: Discount Type
   created_at: string;
   updated_at: string;
 };

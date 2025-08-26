@@ -67,6 +67,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
               <TableHead className="text-right">اسم العميل</TableHead>
               <TableHead className="text-right">الحصة الحالية</TableHead>
               <TableHead className="text-right">تاريخ الحصة</TableHead>
+              <TableHead className="text-right">نوع الخصم</TableHead> {/* New: Discount Type Header */}
               <TableHead className="text-right">إجمالي التغييرات</TableHead>
               <TableHead className="text-right w-[130px]">الإجراءات</TableHead>
             </TableRow>
@@ -74,7 +75,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
           <TableBody>
             {bakeries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground"> {/* Updated colspan */}
                   لا توجد مخابز تطابق بحثك.
                 </TableCell>
               </TableRow>
@@ -102,6 +103,9 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                       <TableCell>{bakery.quota_value.toLocaleString('ar-EG')}</TableCell>
                       <TableCell>
                         {format(new Date(bakery.quota_date), 'dd.MM.yyyy', { locale: ar })}
+                      </TableCell>
+                      <TableCell>
+                        <Highlighter text={bakery.discount_type || 'غير محدد'} highlight={searchQuery} /> {/* New: Discount Type Cell */}
                       </TableCell>
                       <TableCell className="font-bold">
                         {bakery.total_changes_count}
@@ -143,7 +147,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                     </TableRow>
                     <CollapsibleContent asChild>
                       <TableRow className="bg-gray-100 dark:bg-gray-900">
-                        <TableCell colSpan={7} className="p-4">
+                        <TableCell colSpan={8} className="p-4"> {/* Updated colspan */}
                           <BakeryQuotaHistory quotaId={bakery.id} />
                         </TableCell>
                       </TableRow>
