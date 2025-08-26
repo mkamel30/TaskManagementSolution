@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BakeryQuota } from '@/api/bakery-quotas';
 import {
   Table,
@@ -34,6 +34,21 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
   onDelete,
   searchQuery,
 }) => {
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+
+  // Automatically expand the group if there's only one group and a search query
+  React.useEffect(() => {
+    if (searchQuery && groupedQuotas.length === 1) {
+      setOpenGroupId(groupedQuotas[0].client_id);
+    } else {
+      setOpenGroupId(null);
+    }
+  }, [searchQuery, groupedQuotas]);
+
+  const handleToggleGroup = (clientId: string) => {
+    setOpenGroupId(openGroupId === clientId ? null : clientId);
+  };
+
   return (
     <div className="rounded-md border overflow-hidden" dir="rtl">
       <Table>
@@ -51,18 +66,26 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
             <TableRow>
               <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                 لا توجد حصص تأمينية تطابق بحثك.
+                <br />
+                <span className="text-xs">جرب تعديل مصطلح البحث أو قم بإضافة حصة جديدة.</span>
               </TableCell>
             </TableRow>
           ) : (
             groupedQuotas.map((group) => (
-              <Collapsible asChild key={group.client_id}>
+              <Collapsible asChild key={group.client_id} open={openGroupId === group.client_id}>
                 <>
-                  <TableRow className="bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <TableRow 
+                    className={cn(
+                      "bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer",
+                      openGroupId === group.client_id && "ring-2 ring-primary/50"
+                    )}
+                    onClick={() => handleToggleGroup(group.client_id)}
+                  >
                     <TableCell>
                       <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <ChevronDown className="h-4 w-4 data-[state=open]:hidden" />
-                          <ChevronUp className="h-4 w-4 data-[state=closed]:hidden" />
+                          <ChevronDown className={cn("h-4 w-4 data-[state=open]:hidden", openGroupId === group.client_id && "hidden")} />
+                          <ChevronUp className={cn("h-4 w-4 data-[state=closed]:hidden", openGroupId !== group.client_id && "hidden")} />
                           <span className="sr-only">Toggle details</span>
                         </Button>
                       </CollapsibleTrigger>
@@ -106,10 +129,16 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                                     </TableCell>
                                     <TableCell>
                                       <div className="flex gap-1 justify-end">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(quota)}>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {
+                                          e.stopPropagation(); // Prevent row click from toggling group
+                                          onEdit(quota);
+                                        }}>
                                           <Edit size={16} />
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(quota.id)}>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => {
+                                          e.stopPropagation(); // Prevent row click from toggling group
+                                          onDelete(quota.id);
+                                        }}>
                                           <Trash2 size={16} />
                                         </Button>
                                       </div>

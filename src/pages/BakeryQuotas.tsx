@@ -154,11 +154,21 @@ const BakeryQuotasPage = () => {
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      currentQuotas = currentQuotas.filter(quota =>
-        quota.client_id.toLowerCase().includes(query) ||
-        quota.client_name.toLowerCase().includes(query) ||
-        quota.notes?.toLowerCase().includes(query)
-      );
+      currentQuotas = currentQuotas.filter(quota => {
+        // Prioritize client_id match
+        if (quota.client_id.toLowerCase().includes(query)) {
+          return true;
+        }
+        // Then client_name
+        if (quota.client_name.toLowerCase().includes(query)) {
+          return true;
+        }
+        // Finally notes
+        if (quota.notes?.toLowerCase().includes(query)) {
+          return true;
+        }
+        return false;
+      });
     }
 
     currentQuotas.sort((a, b) => {
