@@ -145,7 +145,7 @@ export const BakeryQuotaHistory: React.FC<BakeryQuotaHistoryProps> = ({ quotaId 
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground text-right">
-                  بواسطة {entry.user_email} في {format(new Date(entry.changed_at), 'dd-MM-yyyy')}
+                  بواسطة {entry.user_email} في {format(new Date(entry.changed_at), 'd MMMM yyyy, h:mm a', { locale: ar })}
                 </p>
               </div>
               {currentUserId === entry.user_id && ( // Only show buttons if current user created the entry
