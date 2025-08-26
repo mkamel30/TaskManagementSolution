@@ -31,6 +31,7 @@ const BakeryQuotasPage = () => {
   const queryClient = useQueryClient();
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingQuota, setEditingQuota] = useState<BakeryQuota | null>(null);
+  const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuota | null>(null); // New state
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
@@ -80,6 +81,7 @@ const BakeryQuotasPage = () => {
       showSuccess('تم تحديث الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
       setEditingQuota(null);
+      setAddingRecordForQuota(null); // Clear this state too
     },
     onError: (error) => {
       showError(`خطأ في تحديث الحصة التأمينية: ${error.message}`);
@@ -101,12 +103,14 @@ const BakeryQuotasPage = () => {
   const handleFormSubmit = async (quotaData: BakeryQuotaFormData, existingQuotaId?: string) => { // Modified signature
     const loadingToast = showLoading('جاري حفظ الحصة التأمينية...');
     try {
-      if (editingQuota) {
-        await updateMutation.mutateAsync({ id: editingQuota.id, updates: quotaData });
-      } else if (existingQuotaId) { // If an existing quota was found by client_id
-        await updateMutation.mutateAsync({ id: existingQuotaId, updates: quotaData });
-      }
-      else {
+      if (editingQuota || existingQuotaId) { // If editing an existing quota or updating an existing client
+        const idToUpdate = editingQuota?.id || existingQuotaId;
+        if (idToUpdate) {
+          await updateMutation.mutateAsync({ id: idToUpdate, updates: quotaData });
+        } else {
+          throw new Error("No ID provided for update operation.");
+        }
+      } else { // If creating a brand new quota
         await createMutation.mutateAsync(quotaData);
       }
     } catch (error: any) {
@@ -118,6 +122,24 @@ const BakeryQuotasPage = () => {
 
   const handleEdit = (quota: BakeryQuota) => {
     setEditingQuota(quota);
+    setAddingRecordForQuota(null); // Ensure this is null
+    setIsFormDialogOpen(true);
+  };
+
+  const handleAddNewRecordForClient = (quota: BakeryQuota) => {
+    // Create a temporary object for initialData without an ID,
+    // but with client_id, client_name, and notes pre-filled.
+    setAddingRecordForQuota({
+      client_id: quota.client_id,
+      client_name: quota.client_name,
+      quota_value: 0, // Default to 0 or empty for new record
+      quota_date: new Date().toISOString().split('T')[0], // Default to today
+      notes: quota.notes,
+      id: '', // Important: indicate this is NOT an existing record ID
+      created_at: '', // Will be set by DB
+      updated_at: '', // Will be set by DB
+    });
+    setEditingQuota(null); // Ensure this is null
     setIsFormDialogOpen(true);
   };
 
@@ -137,6 +159,7 @@ const BakeryQuotasPage = () => {
   const handleDialogChange = (open: boolean) => {
     if (!open) {
       setEditingQuota(null);
+      setAddingRecordForQuota(null); // Clear when dialog closes
     }
     setIsFormDialogOpen(open);
   };
@@ -181,6 +204,12 @@ const BakeryQuotasPage = () => {
 
   const totalBakeries = quotas?.length || 0;
 
+  // Determine which initialData to pass to the form
+  const formInitialData = editingQuota || addingRecordForQuota || undefined;
+  const dialogTitle = editingQuota 
+    ? 'تعديل بيانات المخبز' 
+    : (addingRecordForQuota ? `إضافة سجل جديد لـ ${addingRecordForQuota.client_name}` : 'إضافة مخبز جديد');
+
   if (isLoading) return <div className="text-center p-8">جاري تحميل بيانات المخابز...</div>;
   if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز</div>;
 
@@ -190,20 +219,20 @@ const BakeryQuotasPage = () => {
         <h1 className="text-2xl font-bold">الحصص التأمينية للمخابز</h1>
         <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
           <DialogTrigger asChild>
-            <Button className="shrink-0 flex items-center gap-2">
+            <Button className="shrink-0 flex items-center gap-2" onClick={() => { setEditingQuota(null); setAddingRecordForQuota(null); }}>
               <PlusCircle className="h-4 w-4" />
               <span>إضافة مخبز جديد</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[625px]">
             <DialogHeader>
-              <DialogTitle className="text-right">{editingQuota ? 'تعديل بيانات المخبز' : 'إضافة مخبز جديد'}</DialogTitle>
+              <DialogTitle className="text-right">{dialogTitle}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[75vh] overflow-y-auto p-1">
               <BakeryQuotaForm
                 onSubmit={handleFormSubmit}
                 onCancel={() => handleDialogChange(false)}
-                initialData={editingQuota ?? undefined}
+                initialData={formInitialData}
               />
             </div>
           </DialogContent>
@@ -263,6 +292,7 @@ const BakeryQuotasPage = () => {
             bakeries={bakeriesWithHistoryCount}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
+            onAddRecord={handleAddNewRecordForClient} // Pass the new handler
             searchQuery={searchQuery}
           />
         </TabsContent>

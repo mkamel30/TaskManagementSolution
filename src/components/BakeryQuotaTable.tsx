@@ -14,7 +14,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit, Trash2, PlusCircle } from 'lucide-react'; // Added PlusCircle
 import { cn } from '@/lib/utils';
 import { Highlighter } from './Highlighter';
 import { format } from 'date-fns';
@@ -25,6 +25,7 @@ interface BakeryQuotaTableProps {
   bakeries: (BakeryQuota & { total_changes_count: number })[];
   onEdit: (quota: BakeryQuota) => void;
   onDelete: (id: string) => void;
+  onAddRecord: (quota: BakeryQuota) => void; // New prop for adding a record
   searchQuery: string;
 }
 
@@ -32,6 +33,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
   bakeries,
   onEdit,
   onDelete,
+  onAddRecord, // Destructure new prop
   searchQuery,
 }) => {
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
             <TableHead className="text-right">الحصة الحالية</TableHead>
             <TableHead className="text-right">تاريخ آخر تعديل</TableHead>
             <TableHead className="text-right">إجمالي التغييرات</TableHead>
-            <TableHead className="text-right w-[100px]">الإجراءات</TableHead>
+            <TableHead className="text-right w-[130px]">الإجراءات</TableHead> {/* Increased width */}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -99,6 +101,9 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 justify-end">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onAddRecord(bakery)}> {/* New button */}
+                          <PlusCircle size={16} />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(bakery)}>
                           <Edit size={16} />
                         </Button>
