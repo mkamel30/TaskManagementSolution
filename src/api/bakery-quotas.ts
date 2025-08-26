@@ -150,14 +150,61 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
 };
 
 export const deleteBakeryQuota = async (id: string) => {
-  const { error } = await supabase
-    .from('bakery_quotas')
-    .delete()
-    .eq('id', id);
+  // Fetch the history for this quota to determine if we should revert or fully delete
+  const history = await getBakeryQuotaHistory(id);
 
-  if (error) {
-    console.error('Error deleting bakery quota:', error);
-    throw error;
+  if (history.length > 1) {
+    // If there's more than one history entry, revert to the previous state
+    const secondLastEntry = history[1]; // The entry before the most recent one
+    const previousQuotaValue = secondLastEntry.new_quota_value;
+
+    if (previousQuotaValue !== undefined && previousQuotaValue !== null) {
+      // Update the main bakery_quotas record with the previous value
+      const { error: updateError } = await supabase
+        .from('bakery_quotas')
+        .update({ quota_value: previousQuotaValue, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (updateError) {
+        console.error('Error reverting bakery quota:', updateError);
+        throw updateError;
+      }
+
+      // Delete only the most recent history entry (the one being "undone")
+      const { error: deleteHistoryError } = await supabase
+        .from('bakery_quota_history')
+        .delete()
+        .eq('id', history[0].id); // history[0] is the most recent entry
+
+      if (deleteHistoryError) {
+        console.error('Error deleting most recent history entry:', deleteHistoryError);
+        // Don't throw, as the main quota was reverted successfully
+      }
+    } else {
+      // If previousQuotaValue is somehow null/undefined, proceed with full delete
+      console.warn('Previous quota value not found in history, performing full delete.');
+      const { error } = await supabase
+        .from('bakery_quotas')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting bakery quota:', error);
+        throw error;
+      }
+    }
+  } else {
+    // If there's only one or no history entries, perform a full delete of the quota
+    // The ON DELETE CASCADE will handle deleting the single history entry if it exists
+    const { error } = await supabase
+      .from('bakery_quotas')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting bakery quota:', error);
+      throw error;
+    }
   }
 };
 
