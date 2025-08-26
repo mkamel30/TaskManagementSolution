@@ -21,6 +21,7 @@ export type BakeryQuotaHistoryEntry = {
   changed_at: string; // This will be a full timestamp with time
   user_email?: string;
   notes?: string;
+  trunc_a_ope_date_?: string; // Added this field
 };
 
 export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
@@ -90,6 +91,7 @@ export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created
     new_quota_value: quota.quota_value,
     notes: quota.notes,
     changed_at: quota.quota_date, // Use quota_date for changed_at
+    trunc_a_ope_date_: quota.quota_date, // Also set this column
   });
 
   if (historyError) {
@@ -139,6 +141,7 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
       new_quota_value: updates.quota_value,
       notes: updates.notes || existingQuotaData.notes,
       changed_at: updates.quota_date || existingQuotaData.quota_date, // Use the updated or existing quota_date
+      trunc_a_ope_date_: updates.quota_date || existingQuotaData.quota_date, // Also set this column
     });
 
     if (historyError) {

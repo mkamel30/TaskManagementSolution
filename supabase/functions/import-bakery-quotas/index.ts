@@ -62,7 +62,8 @@ serve(async (req) => {
 
     const results = {
       total: data.length,
-      processed: 0,
+      inserted: 0, // Track new insertions
+      updated: 0,  // Track updates
       errors: [] as string[],
     };
 
@@ -74,73 +75,108 @@ serve(async (req) => {
         const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
         
-        // Convert TRUNC_A_OPE_DATE_ to YYYY-MM-DD format for database
         let quota_date: string;
         if (raw_quota_date) {
           if (typeof raw_quota_date === 'number') {
-            // Excel serial date to YYYY-MM-DD
             const excelEpoch = new Date(Date.UTC(1899, 11, 30));
             const date = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
-            quota_date = date.toISOString().split('T')[0]; // Get YYYY-MM-DD part
+            quota_date = date.toISOString().split('T')[0];
           } else {
-            // Try to parse string date
             const parsedDate = new Date(raw_quota_date);
             if (!isNaN(parsedDate.getTime())) {
-              quota_date = parsedDate.toISOString().split('T')[0]; // Get YYYY-MM-DD part
+              quota_date = parsedDate.toISOString().split('T')[0];
             } else {
-              quota_date = new Date().toISOString().split('T')[0]; // Default to today
+              quota_date = new Date().toISOString().split('T')[0];
             }
           }
         } else {
-          quota_date = new Date().toISOString().split('T')[0]; // Default to today
+          quota_date = new Date().toISOString().split('T')[0];
         }
 
         const notes = `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`;
 
         if (!client_id || !client_name) {
-          results.errors.push(`Skipping row with missing data: ${JSON.stringify(row)}`);
+          results.errors.push(`Skipping row with missing client_id or client_name: ${JSON.stringify(row)}`);
           continue;
         }
 
-        // Upsert the main bakery record with quota_date (YYYY-MM-DD)
-        const { data: bakery, error: upsertError } = await supabaseAdmin
+        // Check if bakery already exists to determine if it's an insert or update
+        const { data: existingBakery, error: fetchExistingError } = await supabaseAdmin
           .from('bakery_quotas')
-          .upsert(
-            {
+          .select('id, quota_value')
+          .eq('client_id', client_id)
+          .single();
+
+        if (fetchExistingError && fetchExistingError.code !== 'PGRST116') { // PGRST116 means no rows found
+          results.errors.push(`Error checking existing bakery for client ${client_id}: ${fetchExistingError.message}`);
+          continue;
+        }
+
+        let bakeryId: string;
+        if (existingBakery) {
+          // Update existing bakery
+          const { data: updatedBakery, error: updateError } = await supabaseAdmin
+            .from('bakery_quotas')
+            .update({
+              client_name: client_name,
+              quota_value: new_quota_value,
+              quota_date: quota_date,
+              notes: `Last updated from Excel import.`,
+              updated_at: new Date().toISOString(), // Explicitly update updated_at
+            })
+            .eq('id', existingBakery.id)
+            .select()
+            .single();
+
+          if (updateError) {
+            results.errors.push(`Error updating bakery ${client_id}: ${updateError.message}`);
+            continue;
+          }
+          bakeryId = updatedBakery.id;
+          results.updated++;
+        } else {
+          // Insert new bakery
+          const { data: newBakery, error: insertError } = await supabaseAdmin
+            .from('bakery_quotas')
+            .insert({
               client_id: client_id,
               client_name: client_name,
               quota_value: new_quota_value,
-              quota_date: quota_date, // Store as YYYY-MM-DD
-              notes: `Last updated from Excel import.`,
-            },
-            { onConflict: 'client_id' }
-          )
-          .select()
-          .single();
+              quota_date: quota_date,
+              notes: `Imported from Excel.`,
+            })
+            .select()
+            .single();
 
-        if (upsertError) throw upsertError;
+          if (insertError) {
+            results.errors.push(`Error inserting new bakery ${client_id}: ${insertError.message}`);
+            continue;
+          }
+          bakeryId = newBakery.id;
+          results.inserted++;
+        }
 
-        // Always insert a new record into the history table with the quota_date
+        // Always insert a new record into the history table
         const { error: historyError } = await supabaseAdmin
           .from('bakery_quota_history')
           .insert({
-            quota_id: bakery.id,
+            quota_id: bakeryId,
             user_id: userId,
             change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
             old_quota_value: old_quota_value,
             new_quota_value: new_quota_value,
             changed_at: quota_date, // Use quota_date for changed_at
             notes: notes,
+            trunc_a_ope_date_: quota_date, // Also set this column
           });
 
         if (historyError) {
-          console.error(`Error logging history for client ${client_id}:`, historyError);
+          results.errors.push(`Error logging history for client ${client_id}: ${historyError.message}`);
         }
         
-        results.processed++;
       } catch (error: any) {
         console.error('Error processing row:', error);
-        results.errors.push(`Error processing row ${JSON.stringify(row)}: ${error.message || error}`);
+        results.errors.push(`Unhandled error processing row ${JSON.stringify(row)}: ${error.message || error}`);
       }
     }
 
