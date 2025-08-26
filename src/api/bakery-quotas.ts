@@ -82,14 +82,14 @@ export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created
     throw error;
   }
 
-  // Log history with current timestamp
+  // Log history with the quota_date as changed_at
   const { error: historyError } = await supabase.from('bakery_quota_history').insert({
     quota_id: data.id,
     user_id: user.id,
     change_description: 'تم إنشاء حصة تأمينية جديدة.',
     new_quota_value: quota.quota_value,
     notes: quota.notes,
-    changed_at: new Date().toISOString(), // Use current timestamp for changed_at
+    changed_at: quota.quota_date, // Use quota_date for changed_at
   });
 
   if (historyError) {
@@ -123,7 +123,7 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
     throw error;
   }
 
-  // Log history after successful update with current timestamp
+  // Log history after successful update with the new or existing quota_date as changed_at
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
     let description = 'تم تحديث تفاصيل الحصة التأمينية.';
@@ -138,7 +138,7 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
       old_quota_value: existingQuotaData.quota_value,
       new_quota_value: updates.quota_value,
       notes: updates.notes || existingQuotaData.notes,
-      changed_at: new Date().toISOString(), // Use current timestamp for changed_at
+      changed_at: updates.quota_date || existingQuotaData.quota_date, // Use the updated or existing quota_date
     });
 
     if (historyError) {

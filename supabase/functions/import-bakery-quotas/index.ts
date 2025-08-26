@@ -120,7 +120,7 @@ serve(async (req) => {
 
         if (upsertError) throw upsertError;
 
-        // Always insert a new record into the history table with current timestamp
+        // Always insert a new record into the history table with the quota_date
         const { error: historyError } = await supabaseAdmin
           .from('bakery_quota_history')
           .insert({
@@ -129,7 +129,7 @@ serve(async (req) => {
             change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
             old_quota_value: old_quota_value,
             new_quota_value: new_quota_value,
-            changed_at: new Date().toISOString(), // Use current timestamp with time
+            changed_at: quota_date, // Use quota_date for changed_at
             notes: notes,
           });
 
