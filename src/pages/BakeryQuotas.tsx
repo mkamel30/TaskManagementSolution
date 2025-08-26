@@ -35,7 +35,7 @@ const BakeryQuotasPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('client_name'); // Changed 'updated_at' to 'quota_date'
+  const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('client_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
@@ -182,7 +182,7 @@ const BakeryQuotasPage = () => {
       let valA: any = a[sortBy] || '';
       let valB: any = b[sortBy] || '';
 
-      if (sortBy === 'quota_date') { // Using quota_date for sorting
+      if (sortBy === 'quota_date') {
         valA = new Date(valA).getTime();
         valB = new Date(valB).getTime();
       }
@@ -257,7 +257,7 @@ const BakeryQuotasPage = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="client_name">اسم العميل</SelectItem>
-              <SelectItem value="quota_date">تاريخ الحصة</SelectItem> {/* Changed label */}
+              <SelectItem value="quota_date">تاريخ الحصة</SelectItem>
               <SelectItem value="client_id">كود العميل</SelectItem>
             </SelectContent>
           </Select>
