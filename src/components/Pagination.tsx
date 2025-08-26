@@ -70,11 +70,12 @@ export const Pagination: React.FC<PaginationProps> = ({
     <ShadcnPagination className={cn("flex justify-center", className)} dir="ltr">
       <PaginationContent>
         <PaginationItem>
-          <PaginationPrevious
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className={cn(currentPage === 1 && "pointer-events-none opacity-50")}
-          />
+          {/* Use conditional rendering for Previous button */}
+          {currentPage === 1 ? (
+            <PaginationPrevious className="pointer-events-none opacity-50" />
+          ) : (
+            <PaginationPrevious onClick={() => onPageChange(currentPage - 1)} />
+          )}
         </PaginationItem>
         {pageNumbers.map((pageNumber, index) => (
           <PaginationItem key={index}>
@@ -91,11 +92,12 @@ export const Pagination: React.FC<PaginationProps> = ({
           </PaginationItem>
         ))}
         <PaginationItem>
-          <PaginationNext
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className={cn(currentPage === totalPages && "pointer-events-none opacity-50")}
-          />
+          {/* Use conditional rendering for Next button */}
+          {currentPage === totalPages ? (
+            <PaginationNext className="pointer-events-none opacity-50" />
+          ) : (
+            <PaginationNext onClick={() => onPageChange(currentPage + 1)} />
+          )}
         </PaginationItem>
       </PaginationContent>
     </ShadcnPagination>
