@@ -5,11 +5,10 @@ export type BakeryQuota = {
   client_id: string;
   client_name: string;
   quota_value: number;
-  quota_date: string; // This will be the operation date from TRUNC_A_OPE_DATE_
+  quota_date: string; // This will be stored as YYYY-MM-DD for database compatibility
   notes?: string;
   created_at: string;
   updated_at: string;
-  operation_date?: string; // Added for direct access to TRUNC_A_OPE_DATE_
 };
 
 export type BakeryQuotaHistoryEntry = {
@@ -22,11 +21,13 @@ export type BakeryQuotaHistoryEntry = {
   changed_at: string; // This will be a full timestamp with time
   user_email?: string;
   notes?: string;
-  TRUNC_A_OPE_DATE_?: string; // Added for Excel import data
 };
 
 export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
-  const { data, error } = await supabase.rpc('get_bakery_quotas_with_operation_date');
+  const { data, error } = await supabase
+    .from('bakery_quotas')
+    .select('*')
+    .order('quota_date', { ascending: false }); // Sort by quota_date descending
 
   if (error) {
     console.error('Error fetching bakery quotas:', error);
@@ -41,7 +42,7 @@ export const getBakeryQuotaByClientId = async (clientId: string): Promise<Bakery
     .from('bakery_quotas')
     .select('*')
     .eq('client_id', clientId)
-    .order('operation_date', { ascending: false }) // Get the latest by operation date
+    .order('quota_date', { ascending: false }) // Get the latest by date
     .limit(1)
     .single();
 
@@ -89,7 +90,6 @@ export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created
     new_quota_value: quota.quota_value,
     notes: quota.notes,
     changed_at: new Date().toISOString(), // Use current timestamp for changed_at
-    TRUNC_A_OPE_DATE_: quota.quota_date, // Store the operation date
   });
 
   if (historyError) {
@@ -139,7 +139,6 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
       new_quota_value: updates.quota_value,
       notes: updates.notes || existingQuotaData.notes,
       changed_at: new Date().toISOString(), // Use current timestamp for changed_at
-      TRUNC_A_OPE_DATE_: updates.quota_date || existingQuotaData.quota_date, // Store the operation date
     });
 
     if (historyError) {

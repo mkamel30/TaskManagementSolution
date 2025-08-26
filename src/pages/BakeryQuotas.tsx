@@ -37,7 +37,7 @@ const BakeryQuotasPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'client_name' | 'operation_date' | 'client_id'>('operation_date'); // Default to operation_date
+  const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('quota_date'); // Default to quota_date
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // Default to descending
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
@@ -179,10 +179,10 @@ const BakeryQuotasPage = () => {
     }
 
     currentBakeries.sort((a, b) => {
-      let valA: any = a.operation_date || a.quota_date || '';
-      let valB: any = b.operation_date || b.quota_date || '';
+      let valA: any = a[sortBy] || '';
+      let valB: any = b[sortBy] || '';
 
-      if (sortBy === 'operation_date') {
+      if (sortBy === 'quota_date') {
         valA = new Date(valA).getTime();
         valB = new Date(valB).getTime();
       }
@@ -250,13 +250,13 @@ const BakeryQuotasPage = () => {
         </div>
         
         <div className="flex gap-2 items-center">
-          <Select value={sortBy} onValueChange={(value: 'client_name' | 'operation_date' | 'client_id') => setSortBy(value)}>
+          <Select value={sortBy} onValueChange={(value: 'client_name' | 'quota_date' | 'client_id') => setSortBy(value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="الترتيب حسب" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="client_name">اسم العميل</SelectItem>
-              <SelectItem value="operation_date">تاريخ العملية</SelectItem>
+              <SelectItem value="quota_date">تاريخ الحصة</SelectItem>
               <SelectItem value="client_id">كود العميل</SelectItem>
             </SelectContent>
           </Select>
