@@ -66,25 +66,15 @@ serve(async (req) => {
 
     for (const row of data) {
       try {
-        const client_id = row['BAKERY_CODE']?.toString().trim() || '';
-        const client_name = row['BAKERY_NAME']?.toString().trim() || '';
-        const old_quota_value = parseFloat(row['OLD_AVG_']?.toString() || '0');
-        const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
-        const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
-        let quota_date: string;
-
-        if (raw_quota_date) {
-          if (typeof raw_quota_date === 'number') {
-            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-            const date = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
-            quota_date = date.toISOString();
-          } else {
-            const parsedDate = new Date(raw_quota_date);
-            quota_date = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : new Date().toISOString();
-          }
-        } else {
-          quota_date = new Date().toISOString();
-        }
+        // Use the actual keys observed in the log
+        const client_id = row['Row Labels']?.toString().trim() || '';
+        // Fallback: use client_id as client_name if BAKERY_NAME is not found
+        const client_name = row['BAKERY_NAME']?.toString().trim() || client_id; 
+        const old_quota_value = parseFloat(row['Sum of OLD_AVG_']?.toString() || '0');
+        const new_quota_value = parseFloat(row['Sum of NEW_AVG_']?.toString() || '0');
+        
+        // Default to current date as 'TRUNC_A_OPE_DATE_' was not found in logs
+        const quota_date = new Date().toISOString(); 
 
         // Add detailed logging for debugging
         console.log(`Processing row: ${JSON.stringify(row)}`);
@@ -92,7 +82,7 @@ serve(async (req) => {
 
 
         if (!client_id || !client_name) {
-          errors.push(`Skipping row with missing BAKERY_CODE or BAKERY_NAME: ${JSON.stringify(row)}`);
+          errors.push(`Skipping row with missing client ID or name (from 'Row Labels' or 'BAKERY_NAME'): ${JSON.stringify(row)}`);
           continue;
         }
 
