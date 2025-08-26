@@ -101,7 +101,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                       </TableCell>
                       <TableCell>{bakery.quota_value.toLocaleString('ar-EG')}</TableCell>
                       <TableCell>
-                        {format(new Date(bakery.quota_date), 'd MMMM yyyy', { locale: ar })}
+                        {format(new Date(bakery.updated_at), 'dd-MM-yyyy')}
                       </TableCell>
                       <TableCell className="font-bold">
                         {bakery.total_changes_count}

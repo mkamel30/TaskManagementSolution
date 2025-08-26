@@ -35,7 +35,7 @@ const BakeryQuotasPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('client_name');
+  const [sortBy, setSortBy] = useState<'client_name' | 'updated_at' | 'client_id'>('client_name'); // Changed 'quota_date' to 'updated_at'
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
@@ -182,7 +182,7 @@ const BakeryQuotasPage = () => {
       let valA: any = a[sortBy] || '';
       let valB: any = b[sortBy] || '';
 
-      if (sortBy === 'quota_date') {
+      if (sortBy === 'updated_at') { // Changed from 'quota_date'
         valA = new Date(valA).getTime();
         valB = new Date(valB).getTime();
       }
@@ -251,13 +251,13 @@ const BakeryQuotasPage = () => {
         </div>
         
         <div className="flex gap-2 items-center">
-          <Select value={sortBy} onValueChange={(value: 'client_name' | 'quota_date' | 'client_id') => setSortBy(value)}>
+          <Select value={sortBy} onValueChange={(value: 'client_name' | 'updated_at' | 'client_id') => setSortBy(value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="الترتيب حسب" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="client_name">اسم العميل</SelectItem>
-              <SelectItem value="quota_date">تاريخ آخر تعديل</SelectItem>
+              <SelectItem value="updated_at">تاريخ آخر تعديل</SelectItem> {/* Changed label */}
               <SelectItem value="client_id">كود العميل</SelectItem>
             </SelectContent>
           </Select>
