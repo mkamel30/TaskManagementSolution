@@ -60,11 +60,9 @@ serve(async (req) => {
       });
     }
 
-    const results = {
-      total: data.length,
-      processed: 0,
-      errors: [] as string[],
-    };
+    let insertedCount = 0;
+    let updatedCount = 0;
+    const errors: string[] = [];
 
     for (const row of data) {
       try {
@@ -88,55 +86,84 @@ serve(async (req) => {
           quota_date = new Date().toISOString();
         }
 
-        const notes = `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`;
-
         if (!client_id || !client_name) {
-          results.errors.push(`Skipping row with missing data: ${JSON.stringify(row)}`);
+          errors.push(`Skipping row with missing data: ${JSON.stringify(row)}`);
           continue;
         }
 
-        // Upsert the main bakery record to keep it up-to-date
-        const { data: bakery, error: upsertError } = await supabaseAdmin
+        // Check if bakery already exists
+        const { data: existingBakery, error: selectError } = await supabaseAdmin
           .from('bakery_quotas')
-          .upsert(
-            {
-              client_id: client_id,
+          .select('id, quota_value')
+          .eq('client_id', client_id)
+          .single();
+
+        let bakeryId: string;
+        let changeDescription: string;
+
+        if (existingBakery) {
+          // Update existing bakery
+          const { data: updatedBakery, error: updateError } = await supabaseAdmin
+            .from('bakery_quotas')
+            .update({
               client_name: client_name,
               quota_value: new_quota_value,
               quota_date: quota_date.split('T')[0],
               notes: `Last updated from Excel import.`,
-            },
-            { onConflict: 'client_id' }
-          )
-          .select()
-          .single();
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingBakery.id)
+            .select()
+            .single();
 
-        if (upsertError) throw upsertError;
+          if (updateError) throw updateError;
+          bakeryId = updatedBakery.id;
+          updatedCount++;
+          changeDescription = `تم تحديث الحصة من ${existingBakery.quota_value} إلى ${new_quota_value}`;
+        } else {
+          // Insert new bakery
+          const { data: newBakery, error: insertError } = await supabaseAdmin
+            .from('bakery_quotas')
+            .insert({
+              client_id: client_id,
+              client_name: client_name,
+              quota_value: new_quota_value,
+              quota_date: quota_date.split('T')[0],
+              notes: `Imported from Excel.`,
+            })
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          bakeryId = newBakery.id;
+          insertedCount++;
+          changeDescription = `تم إنشاء حصة تأمينية جديدة بقيمة ${new_quota_value}`;
+        }
 
         // Always insert a new record into the history table for each row in Excel
         const { error: historyError } = await supabaseAdmin
           .from('bakery_quota_history')
           .insert({
-            quota_id: bakery.id,
+            quota_id: bakeryId,
             user_id: userId,
-            change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
+            change_description: changeDescription,
             old_quota_value: old_quota_value,
             new_quota_value: new_quota_value,
             changed_at: quota_date, // Use the date from Excel as the change date
+            notes: `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`,
           });
 
         if (historyError) {
           console.error(`Error logging history for client ${client_id}:`, historyError);
         }
         
-        results.processed++;
       } catch (error: any) {
         console.error('Error processing row:', error);
-        results.errors.push(`Error processing row ${JSON.stringify(row)}: ${error.message || error}`);
+        errors.push(`Error processing row ${JSON.stringify(row)}: ${error.message || error}`);
       }
     }
 
-    return new Response(JSON.stringify(results), {
+    return new Response(JSON.stringify({ inserted: insertedCount, updated: updatedCount, errors: errors }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
