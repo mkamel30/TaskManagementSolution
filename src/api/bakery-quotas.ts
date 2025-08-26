@@ -37,24 +37,17 @@ export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
 };
 
 export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuotaHistoryEntry[]> => {
-  const { data, error } = await supabase
-    .from('bakery_quota_history')
-    .select(`
-      *,
-      user:user_id ( email )
-    `)
-    .eq('quota_id', quotaId)
-    .order('changed_at', { ascending: false });
+  const { data, error } = await supabase.rpc('get_bakery_quota_history_with_user', {
+    p_quota_id: quotaId,
+  });
 
   if (error) {
     console.error('Error fetching bakery quota history:', error);
     throw error;
   }
 
-  return data.map(entry => ({
-    ...entry,
-    user_email: entry.user?.email || 'Unknown User'
-  })) as BakeryQuotaHistoryEntry[];
+  // The RPC function already returns user_email, so no need for client-side mapping
+  return data || [];
 };
 
 export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>) => {
