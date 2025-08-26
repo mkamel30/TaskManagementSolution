@@ -66,25 +66,46 @@ serve(async (req) => {
 
     for (const row of data) {
       try {
-        // Use the actual keys observed in the log
-        const client_id = row['Row Labels']?.toString().trim() || '';
-        // Fallback: use client_id as client_name if BAKERY_NAME is not found
-        const client_name = row['BAKERY_NAME']?.toString().trim() || client_id; 
-        const old_quota_value = parseFloat(row['Sum of OLD_AVG_']?.toString() || '0');
-        const new_quota_value = parseFloat(row['Sum of NEW_AVG_']?.toString() || '0');
+        // Corrected column mappings based on standard Excel headers
+        const client_id = row['BAKERY_CODE']?.toString().trim() || '';
+        const client_name = row['BAKERY_NAME']?.toString().trim() || '';
+        const old_quota_value = parseFloat(row['OLD_AVG_']?.toString() || '0');
+        const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         
-        // Default to current date as 'TRUNC_A_OPE_DATE_' was not found in logs
-        const quota_date = new Date().toISOString(); 
+        const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
+        let quota_date_iso: string;
+
+        if (raw_quota_date) {
+          if (typeof raw_quota_date === 'number') {
+            // Excel date serial number (days since 1900-01-01, with 1900-02-29 bug)
+            // Adjust for Excel's epoch (Dec 30, 1899)
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30)); 
+            const date = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
+            quota_date_iso = date.toISOString();
+          } else {
+            // Try to parse as a string date
+            const parsedDate = new Date(raw_quota_date);
+            quota_date_iso = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : new Date().toISOString();
+          }
+        } else {
+          // If TRUNC_A_OPE_DATE_ is missing, default to current date and log an error
+          console.warn(`TRUNC_A_OPE_DATE_ missing for row: ${JSON.stringify(row)}. Defaulting to current date.`);
+          errors.push(`Missing 'TRUNC_A_OPE_DATE_' for row: ${JSON.stringify(row)}. Defaulted to current date.`);
+          quota_date_iso = new Date().toISOString();
+        }
 
         // Add detailed logging for debugging
         console.log(`Processing row: ${JSON.stringify(row)}`);
-        console.log(`Parsed: client_id='${client_id}', client_name='${client_name}', new_quota_value=${new_quota_value}, quota_date=${quota_date}`);
+        console.log(`Parsed: client_id='${client_id}', client_name='${client_name}', new_quota_value=${new_quota_value}, quota_date=${quota_date_iso}`);
 
 
         if (!client_id || !client_name) {
-          errors.push(`Skipping row with missing client ID or name (from 'Row Labels' or 'BAKERY_NAME'): ${JSON.stringify(row)}`);
+          errors.push(`Skipping row with missing BAKERY_CODE or BAKERY_NAME: ${JSON.stringify(row)}`);
           continue;
         }
+
+        // Format date for DB insertion (YYYY-MM-DD)
+        const formatted_quota_date = quota_date_iso.split('T')[0];
 
         // Check if bakery already exists
         const { data: existingBakery, error: selectError } = await supabaseAdmin
@@ -109,7 +130,7 @@ serve(async (req) => {
             .update({
               client_name: client_name,
               quota_value: new_quota_value,
-              quota_date: quota_date.split('T')[0], // Ensure date format is YYYY-MM-DD
+              quota_date: formatted_quota_date, // Use the correctly parsed and formatted date
               notes: `Last updated from Excel import.`,
               updated_at: new Date().toISOString(),
             })
@@ -133,7 +154,7 @@ serve(async (req) => {
               client_id: client_id,
               client_name: client_name,
               quota_value: new_quota_value,
-              quota_date: quota_date.split('T')[0], // Ensure date format is YYYY-MM-DD
+              quota_date: formatted_quota_date, // Use the correctly parsed and formatted date
               notes: `Imported from Excel.`,
             })
             .select()
@@ -158,7 +179,7 @@ serve(async (req) => {
             change_description: changeDescription,
             old_quota_value: old_quota_value,
             new_quota_value: new_quota_value,
-            changed_at: quota_date, // Use the date from Excel as the change date
+            changed_at: quota_date_iso, // Use the full ISO string for history timestamp
             notes: `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`,
           });
 
