@@ -4,21 +4,40 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileSpreadsheet, Download } from 'lucide-react'; // Import Download icon
 import { importBakeryQuotasFromExcel } from '@/api/bakery-quotas';
 import { dismissToast } from '@/utils/toast';
-import { useQueryClient } from '@tanstack/react-query'; // Import useQueryClient
+import { useQueryClient } from '@tanstack/react-query';
+import * as XLSX from 'xlsx'; // Import xlsx for client-side Excel generation
 
 export const ImportBakeryQuotas: React.FC = () => {
-  const queryClient = useQueryClient(); // Initialize query client
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  const templateHeaders = [
+    'كود المخبز',
+    'اسم المخبز',
+    'الحصة الجديدة',
+    'الحصة القديمة',
+    'تاريخ الحصة',
+    'اسم التوريد',
+    'القسم الفرعي للتوريد',
+  ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
     }
+  };
+
+  const handleDownloadTemplate = () => {
+    const worksheet = XLSX.utils.json_to_sheet([], { header: templateHeaders });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+    XLSX.writeFile(workbook, 'BakeryQuotas_Template.xlsx');
+    toast.success('تم تنزيل قالب Excel بنجاح!');
   };
 
   const handleImport = async () => {
@@ -56,11 +75,9 @@ export const ImportBakeryQuotas: React.FC = () => {
       }
       
       setFile(null);
-      // Clear the file input
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
 
-      // Invalidate queries to refetch data after successful import
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistoryCounts'] });
 
@@ -99,14 +116,24 @@ export const ImportBakeryQuotas: React.FC = () => {
             الملف المختار: {file.name}
           </div>
         )}
-        <Button 
-          onClick={handleImport} 
-          disabled={!file || isUploading}
-          className="flex items-center gap-2"
-        >
-          <Upload className="h-4 w-4" />
-          {isUploading ? 'جاري الاستيراد...' : 'استيراد البيانات'}
-        </Button>
+        <div className="flex gap-2 w-full justify-end">
+          <Button 
+            onClick={handleDownloadTemplate} 
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            تنزيل القالب
+          </Button>
+          <Button 
+            onClick={handleImport} 
+            disabled={!file || isUploading}
+            className="flex items-center gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            {isUploading ? 'جاري الاستيراد...' : 'استيراد البيانات'}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
