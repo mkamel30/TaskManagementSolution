@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getBakeryQuotas, createBakeryQuota, updateBakeryQuota, deleteBakeryQuota } from '@/api/bakery-quotas';
 import { BakeryQuota } from '@/api/bakery-quotas';
-import { BakeryQuotaList } from '@/components/BakeryQuotaList';
 import { BakeryQuotaForm } from '@/components/BakeryQuotaForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,12 +16,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Search, Calendar, SortAsc, SortDesc, LayoutGrid, Table2 } from 'lucide-react';
+import { PlusCircle, Search, Calendar, SortAsc, SortDesc } from 'lucide-react';
 import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { BakeryQuotaTable } from '@/components/BakeryQuotaTable';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -44,7 +42,6 @@ const BakeryQuotasPage = () => {
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'created_at' | 'quota_date' | 'client_id'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
     queryKey: ['bakeryQuotas'],
@@ -155,25 +152,15 @@ const BakeryQuotasPage = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       currentQuotas = currentQuotas.filter(quota => {
-        // Prioritize client_id match
-        if (quota.client_id.toLowerCase().includes(query)) {
-          return true;
-        }
-        // Then client_name
-        if (quota.client_name.toLowerCase().includes(query)) {
-          return true;
-        }
-        // Finally notes
-        if (quota.notes?.toLowerCase().includes(query)) {
-          return true;
-        }
+        if (quota.client_id.toLowerCase().includes(query)) return true;
+        if (quota.client_name.toLowerCase().includes(query)) return true;
+        if (quota.notes?.toLowerCase().includes(query)) return true;
         return false;
       });
     }
 
     currentQuotas.sort((a, b) => {
       let valA: any, valB: any;
-
       if (sortBy === 'created_at' || sortBy === 'quota_date') {
         valA = a[sortBy] ? new Date(a[sortBy]).getTime() : (sortBy === 'quota_date' ? Infinity : -Infinity);
         valB = b[sortBy] ? new Date(b[sortBy]).getTime() : (sortBy === 'quota_date' ? Infinity : -Infinity);
@@ -181,7 +168,6 @@ const BakeryQuotasPage = () => {
         valA = a[sortBy] || '';
         valB = b[sortBy] || '';
       }
-
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
@@ -210,7 +196,6 @@ const BakeryQuotasPage = () => {
     });
     return Array.from(groups.values()).sort((a, b) => a.client_name.localeCompare(b.client_name, 'ar'));
   }, [filteredAndSortedQuotas, historyCounts]);
-
 
   const totalQuotas = quotas?.length || 0;
   const overdueQuotas = quotas?.filter(quota => new Date(quota.quota_date) < new Date()).length || 0;
@@ -277,15 +262,6 @@ const BakeryQuotasPage = () => {
           >
             {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
           </Button>
-
-          <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'cards' | 'table') => value && setViewMode(value)} className="mr-2">
-            <ToggleGroupItem value="cards" aria-label="Toggle cards view">
-              <LayoutGrid className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="Toggle table view">
-              <Table2 className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
         </div>
       </div>
 
@@ -337,21 +313,12 @@ const BakeryQuotasPage = () => {
           <TabsTrigger value="import">استيراد من Excel</TabsTrigger>
         </TabsList>
         <TabsContent value="quotas" className="space-y-4">
-          {viewMode === 'cards' ? (
-            <BakeryQuotaList
-              quotas={filteredAndSortedQuotas}
-              onEdit={handleEdit}
-              onDelete={handleDeleteRequest}
-              searchQuery={searchQuery}
-            />
-          ) : (
-            <BakeryQuotaTable
-              groupedQuotas={groupedQuotas}
-              onEdit={handleEdit}
-              onDelete={handleDeleteRequest}
-              searchQuery={searchQuery}
-            />
-          )}
+          <BakeryQuotaTable
+            groupedQuotas={groupedQuotas}
+            onEdit={handleEdit}
+            onDelete={handleDeleteRequest}
+            searchQuery={searchQuery}
+          />
         </TabsContent>
         <TabsContent value="import" className="space-y-4">
           <ImportBakeryQuotas />

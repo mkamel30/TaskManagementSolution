@@ -13,6 +13,30 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Authorization header is required' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(jwt);
+
+    if (userError || !user) {
+      console.error('Error getting user:', userError);
+      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+    const userId = user.id;
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
 
@@ -23,16 +47,11 @@ serve(async (req) => {
       });
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = worksheet ? worksheet['!ref'] ? XLSX.utils.sheet_to_json(worksheet) : [] : [];
+    const data = worksheet ? (worksheet['!ref'] ? XLSX.utils.sheet_to_json(worksheet) : []) : [];
 
     if (data.length === 0) {
       return new Response(JSON.stringify({ error: 'No data found in the Excel file' }), {
@@ -40,8 +59,6 @@ serve(async (req) => {
         status: 400,
       });
     }
-
-    console.log('Excel headers:', Object.keys(data[0]));
 
     const results = {
       total: data.length,
@@ -51,32 +68,21 @@ serve(async (req) => {
     };
 
     for (const row of data) {
-      console.log('Processing row:', row); // Log the raw row data
       try {
-        const client_id = row['BAKERY_CODE']?.toString() || ''; // Ensure client_id is string
-        const client_name = row['BAKERY_NAME']?.toString() || ''; // Ensure client_name is string
-        const quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0'); // Ensure value is string before parseFloat
+        const client_id = row['BAKERY_CODE']?.toString() || '';
+        const client_name = row['BAKERY_NAME']?.toString() || '';
+        const quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
         let quota_date: string;
 
-        // Attempt to parse date, fallback to current date if invalid
         if (raw_quota_date) {
-          // Assuming raw_quota_date might be a number (Excel date) or a string
           if (typeof raw_quota_date === 'number') {
-            // Excel dates are days since 1900-01-01 (or 1904-01-01 for Mac)
-            // Adjust for Excel's epoch (1900-01-01) and potential leap year bug
-            const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // Dec 30, 1899
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
             const date = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
             quota_date = date.toISOString().split('T')[0];
           } else {
-            // Try parsing as string, e.g., 'YYYY-MM-DD'
             const parsedDate = new Date(raw_quota_date);
-            if (!isNaN(parsedDate.getTime())) {
-              quota_date = parsedDate.toISOString().split('T')[0];
-            } else {
-              console.warn(`Invalid date format for TRUNC_A_OPE_DATE_: ${raw_quota_date}. Using current date.`);
-              quota_date = new Date().toISOString().split('T')[0];
-            }
+            quota_date = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
           }
         } else {
           quota_date = new Date().toISOString().split('T')[0];
@@ -84,62 +90,57 @@ serve(async (req) => {
 
         const notes = `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`;
 
-        console.log(`Extracted: client_id=${client_id}, client_name=${client_name}, quota_value=${quota_value}, quota_date=${quota_date}, notes=${notes}`);
-
         if (!client_id || !client_name || !quota_date) {
-          results.errors.push(`Skipping row with missing client ID, name, or quota date: ${JSON.stringify(row)}`);
+          results.errors.push(`Skipping row with missing data: ${JSON.stringify(row)}`);
           continue;
         }
 
-        // Check for existing quota using both client_id and quota_date
         const { data: existingQuota, error: fetchError } = await supabaseAdmin
           .from('bakery_quotas')
           .select('*')
           .eq('client_id', client_id)
-          .eq('quota_date', quota_date) // Add quota_date to the query
+          .eq('quota_date', quota_date)
           .single();
 
-        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means "No rows found"
-          console.error('Error fetching existing quota:', fetchError);
-          throw fetchError;
-        }
+        if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
 
         if (existingQuota) {
-          console.log(`Existing quota found for client_id=${client_id}, quota_date=${quota_date}. Attempting to update:`, existingQuota.id);
           const { error: updateError } = await supabaseAdmin
             .from('bakery_quotas')
-            .update({
-              client_name,
-              quota_value,
-              notes,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', existingQuota.id); // Update by ID
+            .update({ client_name, quota_value, notes, updated_at: new Date().toISOString() })
+            .eq('id', existingQuota.id);
 
-          if (updateError) {
-            console.error('Error updating quota:', updateError);
-            throw updateError;
-          }
+          if (updateError) throw updateError;
+
+          const { error: historyError } = await supabaseAdmin.from('bakery_quota_history').insert({
+            quota_id: existingQuota.id,
+            user_id: userId,
+            change_description: `تم تحديث الحصة عبر Excel. القيمة الجديدة: ${quota_value}`,
+            old_quota_value: existingQuota.quota_value,
+            new_quota_value: quota_value,
+          });
+          if (historyError) console.error('Error logging history for update:', historyError);
+
           results.updated++;
-          console.log('Quota updated successfully.');
         } else {
-          console.log(`No existing quota found for client_id=${client_id}, quota_date=${quota_date}. Attempting to insert new one.`);
-          const { error: insertError } = await supabaseAdmin
+          const { data: newQuota, error: insertError } = await supabaseAdmin
             .from('bakery_quotas')
-            .insert({
-              client_id,
-              client_name,
-              quota_value,
-              quota_date,
-              notes,
-            });
+            .insert({ client_id, client_name, quota_value, quota_date, notes })
+            .select()
+            .single();
 
-          if (insertError) {
-            console.error('Error inserting new quota:', insertError);
-            throw insertError;
+          if (insertError) throw insertError;
+
+          if (newQuota) {
+            const { error: historyError } = await supabaseAdmin.from('bakery_quota_history').insert({
+              quota_id: newQuota.id,
+              user_id: userId,
+              change_description: 'تم إنشاء الحصة عبر Excel.',
+              new_quota_value: quota_value,
+            });
+            if (historyError) console.error('Error logging history for insert:', historyError);
           }
           results.inserted++;
-          console.log('New quota inserted successfully.');
         }
       } catch (error: any) {
         console.error('Error processing row:', error);
@@ -153,7 +154,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error('Error in import-bakery-quotas edge function (outer catch):', error);
+    console.error('Error in import-bakery-quotas edge function:', error);
     return new Response(JSON.stringify({ error: error.message || error }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
