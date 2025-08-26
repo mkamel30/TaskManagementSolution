@@ -98,12 +98,15 @@ const BakeryQuotasPage = () => {
     }
   });
 
-  const handleFormSubmit = async (quotaData: BakeryQuotaFormData) => {
+  const handleFormSubmit = async (quotaData: BakeryQuotaFormData, existingQuotaId?: string) => { // Modified signature
     const loadingToast = showLoading('جاري حفظ الحصة التأمينية...');
     try {
       if (editingQuota) {
         await updateMutation.mutateAsync({ id: editingQuota.id, updates: quotaData });
-      } else {
+      } else if (existingQuotaId) { // If an existing quota was found by client_id
+        await updateMutation.mutateAsync({ id: existingQuotaId, updates: quotaData });
+      }
+      else {
         await createMutation.mutateAsync(quotaData);
       }
     } catch (error: any) {

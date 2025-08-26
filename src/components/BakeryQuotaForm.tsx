@@ -8,13 +8,15 @@ import { BakeryQuotaHistory } from './BakeryQuotaHistory';
 import { Separator } from './ui/separator';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import { getBakeryQuotaByClientId } from '@/api/bakery-quotas'; // Import new API function
+import { getBakeryQuotaByClientId } from '@/api/bakery-quotas';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Import Alert components
+import { Info } from 'lucide-react'; // Import Info icon
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
 interface BakeryQuotaFormProps {
   initialData?: BakeryQuota;
-  onSubmit: (quota: BakeryQuotaFormData) => Promise<void>;
+  onSubmit: (quota: BakeryQuotaFormData, existingQuotaId?: string) => Promise<void>; // Modified signature
   onCancel: () => void;
 }
 
@@ -32,11 +34,16 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
   });
   const [previousQuotaValue, setPreviousQuotaValue] = useState<number | null>(null);
   const [isFetchingPreviousQuota, setIsFetchingPreviousQuota] = useState(false);
+  const [existingQuotaForClientId, setExistingQuotaForClientId] = useState<BakeryQuota | null>(null); // New state
 
   // If editing, set the previous quota value to the initial data's quota value
   useEffect(() => {
     if (initialData) {
       setPreviousQuotaValue(initialData.quota_value);
+      setExistingQuotaForClientId(initialData); // If editing, this is the existing one
+    } else {
+      setPreviousQuotaValue(null);
+      setExistingQuotaForClientId(null);
     }
   }, [initialData]);
 
@@ -51,31 +58,46 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
         const existingQuota = await getBakeryQuotaByClientId(formData.client_id);
         if (existingQuota) {
           setPreviousQuotaValue(existingQuota.quota_value);
+          setExistingQuotaForClientId(existingQuota); // Store the full object
           // If client name is empty, pre-fill it from the existing quota
           if (!formData.client_name) {
             setFormData(prev => ({ ...prev, client_name: existingQuota.client_name }));
           }
         } else {
           setPreviousQuotaValue(null);
+          setExistingQuotaForClientId(null); // No existing quota found
         }
       } catch (error) {
         console.error("Error fetching previous quota:", error);
         setPreviousQuotaValue(null);
+        setExistingQuotaForClientId(null);
       } finally {
         setIsFetchingPreviousQuota(false);
       }
     } else if (!initialData && !formData.client_id) {
       setPreviousQuotaValue(null); // Clear if client_id is empty
+      setExistingQuotaForClientId(null);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    await onSubmit(formData, existingQuotaForClientId?.id); // Pass existingQuotaId
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* New Alert for existing client */}
+      {!initialData && existingQuotaForClientId && (
+        <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-200 text-right">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertTitle>مخبز موجود!</AlertTitle>
+          <AlertDescription>
+            كود العميل هذا موجود بالفعل. سيتم تحديث بياناته بدلاً من إنشاء سجل جديد.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div>
         <Label className="block text-sm font-medium mb-1 text-right">كود العميل</Label>
         <Input
