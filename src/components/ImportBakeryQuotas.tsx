@@ -7,8 +7,10 @@ import { toast } from 'sonner';
 import { Upload, FileSpreadsheet } from 'lucide-react';
 import { importBakeryQuotasFromExcel } from '@/api/bakery-quotas';
 import { dismissToast } from '@/utils/toast';
+import { useQueryClient } from '@tanstack/react-query'; // Import useQueryClient
 
 export const ImportBakeryQuotas: React.FC = () => {
+  const queryClient = useQueryClient(); // Initialize query client
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -44,6 +46,11 @@ export const ImportBakeryQuotas: React.FC = () => {
       // Clear the file input
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
+
+      // Invalidate queries to refetch data after successful import
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistoryCounts'] });
+
     } catch (error: any) {
       console.error('Import error:', error);
       toast.error(`حدث خطأ أثناء الاستيراد: ${error.message}`);
