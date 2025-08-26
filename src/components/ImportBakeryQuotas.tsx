@@ -20,9 +20,9 @@ export const ImportBakeryQuotas: React.FC = () => {
     'اسم المخبز',
     'الحصة الجديدة',
     'الحصة القديمة',
-    'تاريخ الحصة',
-    'اسم التوريد',
-    'القسم الفرعي للتوريد',
+    'تاريخ التعديل', // Changed from 'تاريخ الحصة'
+    'مكتب التموين', // Changed from 'اسم التوريد'
+    'الإدارة التموينية', // Changed from 'القسم الفرعي للتوريد'
   ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -82,7 +82,8 @@ serve(async (req) => {
         const new_quota_value = parseFloat((row['NEW_AVG_'] || row['الحصة الجديدة'])?.toString() || '0');
         const old_quota_value = parseFloat((row['OLD_AVG_'] || row['الحصة القديمة'])?.toString() || '0');
         
-        const raw_quota_date = (row['TRUNC_A_OPE_DATE_'] || row['تاريخ الحصة']);
+        // Updated to 'تاريخ التعديل'
+        const raw_quota_date = (row['TRUNC_A_OPE_DATE_'] || row['تاريخ التعديل']); 
         let quota_date_iso: string;
 
         if (raw_quota_date) {
@@ -95,13 +96,14 @@ serve(async (req) => {
             quota_date_iso = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : new Date().toISOString();
           }
         } else {
-          errors.push(`Missing 'TRUNC_A_OPE_DATE_' or 'تاريخ الحصة' for row: ${JSON.stringify(row)}. Defaulted to current date.`);
+          errors.push(`Missing 'TRUNC_A_OPE_DATE_' or 'تاريخ التعديل' for row: ${JSON.stringify(row)}. Defaulted to current date.`);
           quota_date_iso = new Date().toISOString();
         }
 
-        const supply_name = (row['SUPPLY_NAME'] || row['اسم التوريد'])?.toString() || '';
-        const supply_sub_dept_name = (row['SUPPLY_SUB_DEPT_NAME'] || row['القسم الفرعي للتوريد'])?.toString() || '';
-        const notes = `Supply: ${supply_name}, Sub-dept: ${supply_sub_dept_name}`;
+        // Updated to 'مكتب التموين' and 'الإدارة التموينية'
+        const supply_name = (row['SUPPLY_NAME'] || row['مكتب التموين'])?.toString() || '';
+        const supply_sub_dept_name = (row['SUPPLY_SUB_DEPT_NAME'] || row['الإدارة التموينية'])?.toString() || '';
+        const notes = `مكتب التموين: ${supply_name}, الإدارة التموينية: ${supply_sub_dept_name}`;
 
         if (!client_id || !client_name) {
           errors.push(`Skipping row with missing BAKERY_CODE/كود المخبز or BAKERY_NAME/اسم المخبز: ${JSON.stringify(row)}`);
