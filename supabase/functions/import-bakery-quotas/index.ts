@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
+// Removed XLSX import as parsing is now client-side
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,24 +37,11 @@ serve(async (req) => {
     }
     const userId = user.id;
 
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
+    // Expecting JSON data directly from the client
+    const { data: excelData } = await req.json();
 
-    if (!file) {
-      return new Response(JSON.stringify({ error: 'File is required' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      });
-    }
-
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const data = worksheet ? (worksheet['!ref'] ? XLSX.utils.sheet_to_json(worksheet) : []) : [];
-
-    if (data.length === 0) {
-      return new Response(JSON.stringify({ error: 'No data found in the Excel file' }), {
+    if (!excelData || excelData.length === 0) {
+      return new Response(JSON.stringify({ error: 'No data found in the request body' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
@@ -64,7 +51,7 @@ serve(async (req) => {
     const historyToInsert: any[] = [];
     const errors: string[] = [];
 
-    for (const row of data) {
+    for (const row of excelData) { // Iterate over the received JSON data
       try {
         const client_id = row['BAKERY_CODE']?.toString().trim();
         const client_name = row['BAKERY_NAME']?.toString().trim();
@@ -169,7 +156,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      total: data.length,
+      total: excelData.length,
       processed: finalHistoryEntries.length, // Number of history entries successfully inserted
       errors: errors,
     }), {

@@ -200,15 +200,9 @@ export const deleteBakeryQuota = async (id: string) => {
   }
 };
 
-export const importBakeryQuotasFromExcel = async (file: File) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
-
-  const formData = new FormData();
-  formData.append('file', file);
-
+export const importBakeryQuotasFromExcel = async (excelData: any[]) => { // Changed to accept parsed JSON data
   const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
-    body: formData,
+    body: { data: excelData }, // Send the parsed data in the body
   });
 
   if (error) {
