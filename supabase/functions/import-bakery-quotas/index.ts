@@ -62,16 +62,16 @@ serve(async (req) => {
 
     const results = {
       total: data.length,
-      inserted: 0,
-      updated: 0,
+      processed: 0,
       errors: [] as string[],
     };
 
     for (const row of data) {
       try {
-        const client_id = row['BAKERY_CODE']?.toString() || '';
-        const client_name = row['BAKERY_NAME']?.toString() || '';
-        const quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
+        const client_id = row['BAKERY_CODE']?.toString().trim() || '';
+        const client_name = row['BAKERY_NAME']?.toString().trim() || '';
+        const old_quota_value = parseFloat(row['OLD_AVG_']?.toString() || '0');
+        const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
         let quota_date: string;
 
@@ -79,69 +79,57 @@ serve(async (req) => {
           if (typeof raw_quota_date === 'number') {
             const excelEpoch = new Date(Date.UTC(1899, 11, 30));
             const date = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
-            quota_date = date.toISOString().split('T')[0];
+            quota_date = date.toISOString();
           } else {
             const parsedDate = new Date(raw_quota_date);
-            quota_date = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+            quota_date = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : new Date().toISOString();
           }
         } else {
-          quota_date = new Date().toISOString().split('T')[0];
+          quota_date = new Date().toISOString();
         }
 
         const notes = `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`;
 
-        if (!client_id || !client_name || !quota_date) {
+        if (!client_id || !client_name) {
           results.errors.push(`Skipping row with missing data: ${JSON.stringify(row)}`);
           continue;
         }
 
-        const { data: existingQuota, error: fetchError } = await supabaseAdmin
+        // Upsert the main bakery record to keep it up-to-date
+        const { data: bakery, error: upsertError } = await supabaseAdmin
           .from('bakery_quotas')
-          .select('*')
-          .eq('client_id', client_id)
-          .eq('quota_date', quota_date)
+          .upsert(
+            {
+              client_id: client_id,
+              client_name: client_name,
+              quota_value: new_quota_value,
+              quota_date: quota_date.split('T')[0],
+              notes: `Last updated from Excel import.`,
+            },
+            { onConflict: 'client_id' }
+          )
+          .select()
           .single();
 
-        if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+        if (upsertError) throw upsertError;
 
-        if (existingQuota) {
-          const { error: updateError } = await supabaseAdmin
-            .from('bakery_quotas')
-            .update({ client_name, quota_value, notes, updated_at: new Date().toISOString() })
-            .eq('id', existingQuota.id);
-
-          if (updateError) throw updateError;
-
-          const { error: historyError } = await supabaseAdmin.from('bakery_quota_history').insert({
-            quota_id: existingQuota.id,
+        // Always insert a new record into the history table for each row in Excel
+        const { error: historyError } = await supabaseAdmin
+          .from('bakery_quota_history')
+          .insert({
+            quota_id: bakery.id,
             user_id: userId,
-            change_description: `تم تحديث الحصة عبر Excel. القيمة الجديدة: ${quota_value}`,
-            old_quota_value: existingQuota.quota_value,
-            new_quota_value: quota_value,
+            change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
+            old_quota_value: old_quota_value,
+            new_quota_value: new_quota_value,
+            changed_at: quota_date, // Use the date from Excel as the change date
           });
-          if (historyError) console.error('Error logging history for update:', historyError);
 
-          results.updated++;
-        } else {
-          const { data: newQuota, error: insertError } = await supabaseAdmin
-            .from('bakery_quotas')
-            .insert({ client_id, client_name, quota_value, quota_date, notes })
-            .select()
-            .single();
-
-          if (insertError) throw insertError;
-
-          if (newQuota) {
-            const { error: historyError } = await supabaseAdmin.from('bakery_quota_history').insert({
-              quota_id: newQuota.id,
-              user_id: userId,
-              change_description: 'تم إنشاء الحصة عبر Excel.',
-              new_quota_value: quota_value,
-            });
-            if (historyError) console.error('Error logging history for insert:', historyError);
-          }
-          results.inserted++;
+        if (historyError) {
+          console.error(`Error logging history for client ${client_id}:`, historyError);
         }
+        
+        results.processed++;
       } catch (error: any) {
         console.error('Error processing row:', error);
         results.errors.push(`Error processing row ${JSON.stringify(row)}: ${error.message || error}`);

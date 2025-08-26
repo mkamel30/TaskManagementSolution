@@ -26,13 +26,6 @@ import { supabase } from '@/integrations/supabase/client';
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
-export interface GroupedBakeryQuota {
-  client_id: string;
-  client_name: string;
-  total_changes_count: number;
-  quotas: BakeryQuota[];
-}
-
 const BakeryQuotasPage = () => {
   const queryClient = useQueryClient();
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
@@ -40,8 +33,8 @@ const BakeryQuotasPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'created_at' | 'quota_date' | 'client_id'>('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('client_name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
     queryKey: ['bakeryQuotas'],
@@ -144,66 +137,48 @@ const BakeryQuotasPage = () => {
     setIsFormDialogOpen(open);
   };
 
-  const filteredAndSortedQuotas = useMemo(() => {
+  const filteredAndSortedBakeries = useMemo(() => {
     if (!quotas) return [];
     
-    let currentQuotas = quotas;
+    let currentBakeries = quotas;
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      currentQuotas = currentQuotas.filter(quota => {
-        if (quota.client_id.toLowerCase().includes(query)) return true;
-        if (quota.client_name.toLowerCase().includes(query)) return true;
-        if (quota.notes?.toLowerCase().includes(query)) return true;
-        return false;
-      });
+      currentBakeries = currentBakeries.filter(bakery => 
+        bakery.client_id.toLowerCase().includes(query) ||
+        bakery.client_name.toLowerCase().includes(query) ||
+        bakery.notes?.toLowerCase().includes(query)
+      );
     }
 
-    currentQuotas.sort((a, b) => {
-      let valA: any, valB: any;
-      if (sortBy === 'created_at' || sortBy === 'quota_date') {
-        valA = a[sortBy] ? new Date(a[sortBy]).getTime() : (sortBy === 'quota_date' ? Infinity : -Infinity);
-        valB = b[sortBy] ? new Date(b[sortBy]).getTime() : (sortBy === 'quota_date' ? Infinity : -Infinity);
-      } else {
-        valA = a[sortBy] || '';
-        valB = b[sortBy] || '';
+    currentBakeries.sort((a, b) => {
+      let valA: any = a[sortBy] || '';
+      let valB: any = b[sortBy] || '';
+
+      if (sortBy === 'quota_date') {
+        valA = new Date(valA).getTime();
+        valB = new Date(valB).getTime();
       }
+
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
 
-    return currentQuotas;
+    return currentBakeries;
   }, [quotas, searchQuery, sortBy, sortOrder]);
 
-  const groupedQuotas = useMemo(() => {
-    const groups = new Map<string, GroupedBakeryQuota>();
-    filteredAndSortedQuotas.forEach(quota => {
-      if (!groups.has(quota.client_id)) {
-        groups.set(quota.client_id, {
-          client_id: quota.client_id,
-          client_name: quota.client_name,
-          total_changes_count: historyCounts?.get(quota.client_id) || 0,
-          quotas: [],
-        });
-      }
-      const group = groups.get(quota.client_id)!;
-      group.quotas.push(quota);
-    });
-    
-    groups.forEach(group => {
-      group.quotas.sort((a, b) => new Date(b.quota_date).getTime() - new Date(a.quota_date).getTime());
-    });
-    return Array.from(groups.values()).sort((a, b) => a.client_name.localeCompare(b.client_name, 'ar'));
-  }, [filteredAndSortedQuotas, historyCounts]);
+  const bakeriesWithHistoryCount = useMemo(() => {
+    return filteredAndSortedBakeries.map(bakery => ({
+        ...bakery,
+        total_changes_count: historyCounts?.get(bakery.client_id) || 0,
+    }));
+  }, [filteredAndSortedBakeries, historyCounts]);
 
-  const totalQuotas = quotas?.length || 0;
-  const overdueQuotas = quotas?.filter(quota => new Date(quota.quota_date) < new Date()).length || 0;
-  const activeQuotas = totalQuotas - overdueQuotas;
-  const totalValue = quotas?.reduce((sum, quota) => sum + quota.quota_value, 0) || 0;
+  const totalBakeries = quotas?.length || 0;
 
-  if (isLoading) return <div className="text-center p-8">جاري تحميل الحصص التأمينية...</div>;
-  if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب الحصص التأمينية</div>;
+  if (isLoading) return <div className="text-center p-8">جاري تحميل بيانات المخابز...</div>;
+  if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز</div>;
 
   return (
     <div className="space-y-6">
@@ -213,12 +188,12 @@ const BakeryQuotasPage = () => {
           <DialogTrigger asChild>
             <Button className="shrink-0 flex items-center gap-2">
               <PlusCircle className="h-4 w-4" />
-              <span>إضافة حصة جديدة</span>
+              <span>إضافة مخبز جديد</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[625px]">
             <DialogHeader>
-              <DialogTitle className="text-right">{editingQuota ? 'تعديل الحصة التأمينية' : 'إضافة حصة تأمينية جديدة'}</DialogTitle>
+              <DialogTitle className="text-right">{editingQuota ? 'تعديل بيانات المخبز' : 'إضافة مخبز جديد'}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[75vh] overflow-y-auto p-1">
               <BakeryQuotaForm
@@ -235,7 +210,7 @@ const BakeryQuotasPage = () => {
         <div className="relative flex-grow max-w-lg">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="بحث في الحصص التأمينية..."
+            placeholder="بحث بالكود أو اسم المخبز..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pr-10 text-right"
@@ -243,13 +218,13 @@ const BakeryQuotasPage = () => {
         </div>
         
         <div className="flex gap-2 items-center">
-          <Select value={sortBy} onValueChange={(value: 'created_at' | 'quota_date' | 'client_id') => setSortBy(value)}>
+          <Select value={sortBy} onValueChange={(value: 'client_name' | 'quota_date' | 'client_id') => setSortBy(value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="الترتيب حسب" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="created_at">تاريخ الإنشاء</SelectItem>
-              <SelectItem value="quota_date">تاريخ الحصة</SelectItem>
+              <SelectItem value="client_name">اسم العميل</SelectItem>
+              <SelectItem value="quota_date">تاريخ آخر تعديل</SelectItem>
               <SelectItem value="client_id">كود العميل</SelectItem>
             </SelectContent>
           </Select>
@@ -265,56 +240,23 @@ const BakeryQuotasPage = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground text-right">إجمالي الحصص</p>
-              <p className="text-2xl font-bold">{totalQuotas}</p>
-            </div>
-            <Calendar className="h-8 w-8 text-blue-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground text-right">حصص متأخرة</p>
-              <p className="text-2xl font-bold text-red-500">{overdueQuotas}</p>
-            </div>
-            <Calendar className="h-8 w-8 text-red-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground text-right">حصص نشطة</p>
-              <p className="text-2xl font-bold text-green-500">{activeQuotas}</p>
-            </div>
-            <Calendar className="h-8 w-8 text-green-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground text-right">إجمالي القيمة</p>
-              <p className="text-2xl font-bold">{totalValue.toLocaleString('ar-EG')}</p>
-            </div>
-            <Calendar className="h-8 w-8 text-purple-500" />
-          </div>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-right">نظرة عامة</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>إجمالي عدد المخابز: {totalBakeries}</p>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="quotas" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="quotas">الحصص التأمينية</TabsTrigger>
+          <TabsTrigger value="quotas">بيانات المخابز</TabsTrigger>
           <TabsTrigger value="import">استيراد من Excel</TabsTrigger>
         </TabsList>
         <TabsContent value="quotas" className="space-y-4">
           <BakeryQuotaTable
-            groupedQuotas={groupedQuotas}
+            bakeries={bakeriesWithHistoryCount}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             searchQuery={searchQuery}
@@ -330,7 +272,7 @@ const BakeryQuotasPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
             <AlertDialogDescription>
-              هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف الحصة التأمينية بشكل دائم.
+              هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف بيانات المخبز وجميع سجلات تغييراته بشكل دائم.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
