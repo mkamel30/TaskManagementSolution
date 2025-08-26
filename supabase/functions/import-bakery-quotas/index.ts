@@ -12,6 +12,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log('Edge Function: import-bakery-quotas invoked.');
+
   try {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -20,6 +22,7 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('Edge Function: Authorization header missing.');
       return new Response(JSON.stringify({ error: 'Authorization header is required' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401,
@@ -29,18 +32,21 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(jwt);
 
     if (userError || !user) {
-      console.error('Error getting user:', userError);
+      console.error('Edge Function: Error getting user or user not found:', userError?.message);
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401,
       });
     }
     const userId = user.id;
+    console.log(`Edge Function: User ${userId} authenticated.`);
 
     // Expecting JSON data directly from the client
-    const { data: excelData } = await req.json();
+    const { data: excelDataChunk } = await req.json();
+    console.log(`Edge Function: Received chunk with ${excelDataChunk.length} rows.`);
 
-    if (!excelData || excelData.length === 0) {
+    if (!excelDataChunk || excelDataChunk.length === 0) {
+      console.warn('Edge Function: No data found in the request body chunk.');
       return new Response(JSON.stringify({ error: 'No data found in the request body' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
@@ -51,7 +57,7 @@ serve(async (req) => {
     const historyToInsert: any[] = [];
     const errors: string[] = [];
 
-    for (const row of excelData) { // Iterate over the received JSON data
+    for (const row of excelDataChunk) { // Iterate over the received JSON data chunk
       try {
         const client_id = row['BAKERY_CODE']?.toString().trim();
         const client_name = row['BAKERY_NAME']?.toString().trim();
@@ -106,10 +112,12 @@ serve(async (req) => {
         });
 
       } catch (error: any) {
-        console.error('Error processing row for batch:', error);
+        console.error('Edge Function: Error processing row for batch:', error);
         errors.push(`Error preparing row ${JSON.stringify(row)}: ${error.message || error}`);
       }
     }
+
+    console.log(`Edge Function: Prepared ${quotasToUpsert.length} quotas for upsert and ${historyToInsert.length} history entries.`);
 
     // Perform batch upsert for bakery_quotas
     const { data: upsertedBakeries, error: upsertError } = await supabaseAdmin
@@ -118,9 +126,10 @@ serve(async (req) => {
       .select('id, client_id, quota_value'); // Select id and the new quota_value
 
     if (upsertError) {
-      console.error('Batch upsert error:', upsertError);
+      console.error('Edge Function: Batch upsert error:', upsertError);
       throw new Error(`Failed to upsert bakery quotas: ${upsertError.message}`);
     }
+    console.log(`Edge Function: Successfully upserted ${upsertedBakeries.length} bakery quotas.`);
 
     const bakeryIdMap = new Map<string, { id: string, new_quota_value: number }>();
     upsertedBakeries.forEach(b => bakeryIdMap.set(b.client_id, { id: b.id, new_quota_value: b.quota_value }));
@@ -150,13 +159,16 @@ serve(async (req) => {
         .insert(finalHistoryEntries);
 
       if (historyInsertError) {
-        console.error('Batch history insert error:', historyInsertError);
+        console.error('Edge Function: Batch history insert error:', historyInsertError);
         throw new Error(`Failed to insert bakery quota history: ${historyInsertError.message}`);
       }
+      console.log(`Edge Function: Successfully inserted ${finalHistoryEntries.length} history entries.`);
+    } else {
+      console.log('Edge Function: No history entries to insert for this chunk.');
     }
 
     return new Response(JSON.stringify({
-      total: excelData.length,
+      total: excelDataChunk.length,
       processed: finalHistoryEntries.length, // Number of history entries successfully inserted
       errors: errors,
     }), {
@@ -165,7 +177,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error('Error in import-bakery-quotas edge function:', error);
+    console.error('Edge Function: Error in import-bakery-quotas edge function:', error);
     return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred during import.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

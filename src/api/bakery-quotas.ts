@@ -200,17 +200,39 @@ export const deleteBakeryQuota = async (id: string) => {
   }
 };
 
-export const importBakeryQuotasFromExcel = async (excelData: any[]) => { // Changed to accept parsed JSON data
-  const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
-    body: { data: excelData }, // Send the parsed data in the body
-  });
+const CHUNK_SIZE = 100; // Define a chunk size, e.g., 100 rows per request
 
-  if (error) {
-    console.error('Error importing bakery quotas:', error);
-    throw error;
+export const importBakeryQuotasFromExcel = async (excelData: any[]) => {
+  let totalProcessed = 0;
+  let allErrors: string[] = [];
+
+  for (let i = 0; i < excelData.length; i += CHUNK_SIZE) {
+    const chunk = excelData.slice(i, i + CHUNK_SIZE);
+    try {
+      const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
+        body: { data: chunk },
+      });
+
+      if (error) {
+        console.error(`Error importing chunk ${i / CHUNK_SIZE + 1}:`, error);
+        allErrors.push(`Error processing chunk ${i / CHUNK_SIZE + 1}: ${error.message}`);
+      } else if (data) {
+        totalProcessed += data.processed;
+        if (data.errors && data.errors.length > 0) {
+          allErrors = allErrors.concat(data.errors);
+        }
+      }
+    } catch (e: any) {
+      console.error(`Exception during chunk import ${i / CHUNK_SIZE + 1}:`, e);
+      allErrors.push(`Exception processing chunk ${i / CHUNK_SIZE + 1}: ${e.message || 'Unknown error'}`);
+    }
   }
 
-  return data;
+  return {
+    total: excelData.length,
+    processed: totalProcessed,
+    errors: allErrors,
+  };
 };
 
 export const updateBakeryQuotaHistoryEntry = async (
