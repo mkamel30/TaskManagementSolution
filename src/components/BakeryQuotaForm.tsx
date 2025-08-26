@@ -43,7 +43,7 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label className="block text-sm font-medium mb-1 text-right">معرّ العميل</Label>
+        <Label className="block text-sm font-medium mb-1 text-right">كود العميل</Label>
         <Input
           value={formData.client_id}
           onChange={(e) => handleInputChange('client_id', e.target.value)}
