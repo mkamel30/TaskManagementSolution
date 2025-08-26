@@ -33,38 +33,40 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
   const [previousQuotaValue, setPreviousQuotaValue] = useState<number | null>(null);
   const [isFetchingPreviousQuota, setIsFetchingPreviousQuota] = useState(false);
 
-  // Effect to fetch previous quota value when client_id changes for new forms
+  // If editing, set the previous quota value to the initial data's quota value
   useEffect(() => {
-    if (!initialData && formData.client_id) { // Only for new forms and if client_id is entered
-      setIsFetchingPreviousQuota(true);
-      const fetchPrevious = async () => {
-        try {
-          const existingQuota = await getBakeryQuotaByClientId(formData.client_id);
-          if (existingQuota) {
-            setPreviousQuotaValue(existingQuota.quota_value);
-            // If client name is empty, pre-fill it from the existing quota
-            if (!formData.client_name) {
-              setFormData(prev => ({ ...prev, client_name: existingQuota.client_name }));
-            }
-          } else {
-            setPreviousQuotaValue(null);
-          }
-        } catch (error) {
-          console.error("Error fetching previous quota:", error);
-          setPreviousQuotaValue(null);
-        } finally {
-          setIsFetchingPreviousQuota(false);
-        }
-      };
-      const handler = setTimeout(fetchPrevious, 500); // Debounce the fetch to avoid too many requests
-      return () => clearTimeout(handler);
-    } else if (!initialData && !formData.client_id) {
-      setPreviousQuotaValue(null); // Clear if client_id is empty
+    if (initialData) {
+      setPreviousQuotaValue(initialData.quota_value);
     }
-  }, [formData.client_id, initialData, formData.client_name]);
+  }, [initialData]);
 
   const handleInputChange = (field: keyof BakeryQuotaFormData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleClientIdBlur = async () => {
+    if (!initialData && formData.client_id) { // Only for new forms and if client_id is entered
+      setIsFetchingPreviousQuota(true);
+      try {
+        const existingQuota = await getBakeryQuotaByClientId(formData.client_id);
+        if (existingQuota) {
+          setPreviousQuotaValue(existingQuota.quota_value);
+          // If client name is empty, pre-fill it from the existing quota
+          if (!formData.client_name) {
+            setFormData(prev => ({ ...prev, client_name: existingQuota.client_name }));
+          }
+        } else {
+          setPreviousQuotaValue(null);
+        }
+      } catch (error) {
+        console.error("Error fetching previous quota:", error);
+        setPreviousQuotaValue(null);
+      } finally {
+        setIsFetchingPreviousQuota(false);
+      }
+    } else if (!initialData && !formData.client_id) {
+      setPreviousQuotaValue(null); // Clear if client_id is empty
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,6 +81,7 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
         <Input
           value={formData.client_id}
           onChange={(e) => handleInputChange('client_id', e.target.value)}
+          onBlur={handleClientIdBlur} // Trigger fetch on blur
           required
           dir="rtl"
           disabled={!!initialData || isFetchingPreviousQuota} /* Disable client_id when editing or fetching */
