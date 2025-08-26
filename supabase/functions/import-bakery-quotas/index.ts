@@ -86,8 +86,13 @@ serve(async (req) => {
           quota_date = new Date().toISOString();
         }
 
+        // Add detailed logging for debugging
+        console.log(`Processing row: ${JSON.stringify(row)}`);
+        console.log(`Parsed: client_id='${client_id}', client_name='${client_name}', new_quota_value=${new_quota_value}, quota_date=${quota_date}`);
+
+
         if (!client_id || !client_name) {
-          errors.push(`Skipping row with missing data: ${JSON.stringify(row)}`);
+          errors.push(`Skipping row with missing BAKERY_CODE or BAKERY_NAME: ${JSON.stringify(row)}`);
           continue;
         }
 
@@ -97,6 +102,12 @@ serve(async (req) => {
           .select('id, quota_value')
           .eq('client_id', client_id)
           .single();
+
+        if (selectError && selectError.code !== 'PGRST116') { // PGRST116 means no rows found, which is expected for new entries
+          console.error(`Error checking existing bakery for client_id ${client_id}:`, selectError);
+          errors.push(`Database error checking existing bakery for client_id ${client_id}: ${selectError.message}`);
+          continue;
+        }
 
         let bakeryId: string;
         let changeDescription: string;
@@ -108,7 +119,7 @@ serve(async (req) => {
             .update({
               client_name: client_name,
               quota_value: new_quota_value,
-              quota_date: quota_date.split('T')[0],
+              quota_date: quota_date.split('T')[0], // Ensure date format is YYYY-MM-DD
               notes: `Last updated from Excel import.`,
               updated_at: new Date().toISOString(),
             })
@@ -116,7 +127,11 @@ serve(async (req) => {
             .select()
             .single();
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error(`Error updating bakery ${existingBakery.id}:`, updateError);
+            errors.push(`Database error updating bakery ${client_id}: ${updateError.message}`);
+            continue;
+          }
           bakeryId = updatedBakery.id;
           updatedCount++;
           changeDescription = `تم تحديث الحصة من ${existingBakery.quota_value} إلى ${new_quota_value}`;
@@ -128,13 +143,17 @@ serve(async (req) => {
               client_id: client_id,
               client_name: client_name,
               quota_value: new_quota_value,
-              quota_date: quota_date.split('T')[0],
+              quota_date: quota_date.split('T')[0], // Ensure date format is YYYY-MM-DD
               notes: `Imported from Excel.`,
             })
             .select()
             .single();
 
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.error(`Error inserting new bakery ${client_id}:`, insertError);
+            errors.push(`Database error inserting new bakery ${client_id}: ${insertError.message}`);
+            continue;
+          }
           bakeryId = newBakery.id;
           insertedCount++;
           changeDescription = `تم إنشاء حصة تأمينية جديدة بقيمة ${new_quota_value}`;
@@ -155,6 +174,7 @@ serve(async (req) => {
 
         if (historyError) {
           console.error(`Error logging history for client ${client_id}:`, historyError);
+          errors.push(`Database error logging history for client ${client_id}: ${historyError.message}`);
         }
         
       } catch (error: any) {

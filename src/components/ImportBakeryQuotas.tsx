@@ -34,12 +34,25 @@ export const ImportBakeryQuotas: React.FC = () => {
       const result = await importBakeryQuotasFromExcel(file);
       console.log('Import result:', result);
       
-      if (result && result.inserted > 0) {
-        toast.success(`تم استيراد ${result.inserted} سجل بنجاح!`);
-      } else if (result && result.updated > 0) {
-        toast.success(`تم تحديث ${result.updated} سجل بنجاح!`);
+      let successMessage = 'تمت معالجة الملف بنجاح!';
+      if (result.inserted > 0 && result.updated > 0) {
+        successMessage = `تم استيراد ${result.inserted} سجل جديد وتحديث ${result.updated} سجل موجود بنجاح!`;
+      } else if (result.inserted > 0) {
+        successMessage = `تم استيراد ${result.inserted} سجل جديد بنجاح!`;
+      } else if (result.updated > 0) {
+        successMessage = `تم تحديث ${result.updated} سجل موجود بنجاح!`;
+      } else if (result.errors && result.errors.length > 0) {
+        successMessage = `تمت معالجة الملف مع بعض الأخطاء.`;
       } else {
-        toast.success('تمت معالجة الملف بنجاح!');
+        successMessage = 'لم يتم استيراد أو تحديث أي سجلات.';
+      }
+
+      toast.success(successMessage);
+
+      if (result.errors && result.errors.length > 0) {
+        result.errors.forEach((error: string) => {
+          toast.error(`خطأ في صف: ${error}`, { duration: 10000 });
+        });
       }
       
       setFile(null);
