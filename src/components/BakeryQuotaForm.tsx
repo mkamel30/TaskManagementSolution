@@ -49,7 +49,7 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
           onChange={(e) => handleInputChange('client_id', e.target.value)}
           required
           dir="rtl"
-          disabled={!!initialData} {/* Disable client_id when editing */}
+          disabled={!!initialData} /* Disable client_id when editing */
         />
       </div>
       
