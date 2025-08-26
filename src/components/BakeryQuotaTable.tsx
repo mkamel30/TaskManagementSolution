@@ -66,7 +66,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
               <TableHead className="text-right">كود العميل</TableHead>
               <TableHead className="text-right">اسم العميل</TableHead>
               <TableHead className="text-right">الحصة الحالية</TableHead>
-              <TableHead className="text-right">تاريخ آخر تعديل</TableHead>
+              <TableHead className="text-right">تاريخ الحصة</TableHead> {/* Changed to تاريخ الحصة */}
               <TableHead className="text-right">إجمالي التغييرات</TableHead>
               <TableHead className="text-right w-[130px]">الإجراءات</TableHead>
             </TableRow>
@@ -101,7 +101,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                       </TableCell>
                       <TableCell>{bakery.quota_value.toLocaleString('ar-EG')}</TableCell>
                       <TableCell>
-                        {format(new Date(bakery.updated_at), 'dd-MM-yyyy')}
+                        {format(new Date(bakery.quota_date), 'dd-MM-yyyy')} {/* Using quota_date */}
                       </TableCell>
                       <TableCell className="font-bold">
                         {bakery.total_changes_count}
