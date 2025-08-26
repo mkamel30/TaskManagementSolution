@@ -20,6 +20,7 @@ export type BakeryQuotaHistoryEntry = {
   new_quota_value?: number;
   changed_at: string;
   user_email?: string;
+  notes?: string; // Added notes field
 };
 
 export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
@@ -64,7 +65,7 @@ export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuot
     throw error;
   }
 
-  // The RPC function already returns user_email, so no need for client-side mapping
+  // The RPC function already returns user_email and notes, so no need for client-side mapping
   return data || [];
 };
 
@@ -89,6 +90,7 @@ export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created
     user_id: user.id,
     change_description: 'تم إنشاء حصة تأمينية جديدة.',
     new_quota_value: quota.quota_value,
+    notes: quota.notes, // Include notes from the new quota
   });
 
   if (historyError) {
@@ -136,6 +138,7 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
       change_description: description,
       old_quota_value: existingQuotaData.quota_value,
       new_quota_value: updates.quota_value,
+      notes: updates.notes || existingQuotaData.notes, // Include notes from updates or existing
     });
 
     if (historyError) {
@@ -176,4 +179,42 @@ export const importBakeryQuotasFromExcel = async (file: File) => {
   }
 
   return data;
+};
+
+export const updateBakeryQuotaHistoryEntry = async (
+  historyId: string,
+  updates: { change_description?: string; notes?: string }
+) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated");
+
+  const { data, error } = await supabase
+    .from('bakery_quota_history')
+    .update(updates)
+    .eq('id', historyId)
+    .eq('user_id', user.id) // Ensure only the user who created it can update
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating bakery quota history entry:', error);
+    throw error;
+  }
+  return data;
+};
+
+export const deleteBakeryQuotaHistoryEntry = async (historyId: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated");
+
+  const { error } = await supabase
+    .from('bakery_quota_history')
+    .delete()
+    .eq('id', historyId)
+    .eq('user_id', user.id); // Ensure only the user who created it can delete
+
+  if (error) {
+    console.error('Error deleting bakery quota history entry:', error);
+    throw error;
+  }
 };
