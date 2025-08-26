@@ -131,6 +131,7 @@ serve(async (req) => {
             new_quota_value: new_quota_value,
             changed_at: new Date().toISOString(), // Use current timestamp with time
             notes: notes,
+            TRUNC_A_OPE_DATE_: quota_date, // Store the original TRUNC_A_OPE_DATE_
           });
 
         if (historyError) {
