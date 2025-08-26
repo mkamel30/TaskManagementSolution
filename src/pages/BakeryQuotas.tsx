@@ -36,7 +36,7 @@ const BakeryQuotasPage = () => {
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('quota_date'); // Changed default sort to quota_date
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // Changed default order to desc
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc'); // Changed default order to ASC
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
     queryKey: ['bakeryQuotas'],
