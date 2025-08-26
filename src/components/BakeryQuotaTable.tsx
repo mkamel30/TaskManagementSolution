@@ -25,7 +25,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"; // Import Tooltip components
+} from "@/components/ui/tooltip";
 
 interface BakeryQuotaTableProps {
   bakeries: (BakeryQuota & { total_changes_count: number })[];
@@ -57,7 +57,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
   };
 
   return (
-    <TooltipProvider> {/* Wrap with TooltipProvider */}
+    <TooltipProvider>
       <div className="rounded-md border overflow-hidden" dir="rtl">
         <Table>
           <TableHeader>
@@ -66,7 +66,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
               <TableHead className="text-right">كود العميل</TableHead>
               <TableHead className="text-right">اسم العميل</TableHead>
               <TableHead className="text-right">الحصة الحالية</TableHead>
-              <TableHead className="text-right">تاريخ آخر تعديل</TableHead>
+              <TableHead className="text-right">تاريخ الحصة</TableHead>
               <TableHead className="text-right">إجمالي التغييرات</TableHead>
               <TableHead className="text-right w-[130px]">الإجراءات</TableHead>
             </TableRow>
@@ -101,7 +101,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
                       </TableCell>
                       <TableCell>{bakery.quota_value.toLocaleString('ar-EG')}</TableCell>
                       <TableCell>
-                        {format(new Date(bakery.quota_date), 'd MMMM yyyy', { locale: ar })}
+                        {format(new Date(bakery.quota_date), 'dd.MM.yyyy', { locale: ar })}
                       </TableCell>
                       <TableCell className="font-bold">
                         {bakery.total_changes_count}

@@ -5,7 +5,7 @@ export type BakeryQuota = {
   client_id: string;
   client_name: string;
   quota_value: number;
-  quota_date: string;
+  quota_date: string; // This will be stored as YYYY-MM-DD for database compatibility
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -18,16 +18,16 @@ export type BakeryQuotaHistoryEntry = {
   change_description: string;
   old_quota_value?: number;
   new_quota_value?: number;
-  changed_at: string;
+  changed_at: string; // This will be a full timestamp with time
   user_email?: string;
-  notes?: string; // Added notes field
+  notes?: string;
 };
 
 export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
   const { data, error } = await supabase
     .from('bakery_quotas')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('quota_date', { ascending: false }); // Sort by quota_date descending
 
   if (error) {
     console.error('Error fetching bakery quotas:', error);
@@ -44,7 +44,7 @@ export const getBakeryQuotaByClientId = async (clientId: string): Promise<Bakery
     .eq('client_id', clientId)
     .order('quota_date', { ascending: false }) // Get the latest by date
     .limit(1)
-    .single(); // Expecting at most one result
+    .single();
 
   if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
     console.error('Error fetching bakery quota by client ID:', error);
@@ -53,7 +53,6 @@ export const getBakeryQuotaByClientId = async (clientId: string): Promise<Bakery
 
   return data as BakeryQuota | null;
 };
-
 
 export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuotaHistoryEntry[]> => {
   const { data, error } = await supabase.rpc('get_bakery_quota_history_with_user', {
@@ -65,7 +64,6 @@ export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuot
     throw error;
   }
 
-  // The RPC function already returns user_email and notes, so no need for client-side mapping
   return data || [];
 };
 
@@ -84,13 +82,14 @@ export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created
     throw error;
   }
 
-  // Log history
+  // Log history with current timestamp
   const { error: historyError } = await supabase.from('bakery_quota_history').insert({
     quota_id: data.id,
     user_id: user.id,
     change_description: 'تم إنشاء حصة تأمينية جديدة.',
     new_quota_value: quota.quota_value,
-    notes: quota.notes, // Include notes from the new quota
+    notes: quota.notes,
+    changed_at: new Date().toISOString(), // Use current timestamp for changed_at
   });
 
   if (historyError) {
@@ -124,7 +123,7 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
     throw error;
   }
 
-  // Log history after successful update
+  // Log history after successful update with current timestamp
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
     let description = 'تم تحديث تفاصيل الحصة التأمينية.';
@@ -138,7 +137,8 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
       change_description: description,
       old_quota_value: existingQuotaData.quota_value,
       new_quota_value: updates.quota_value,
-      notes: updates.notes || existingQuotaData.notes, // Include notes from updates or existing
+      notes: updates.notes || existingQuotaData.notes,
+      changed_at: new Date().toISOString(), // Use current timestamp for changed_at
     });
 
     if (historyError) {
@@ -150,16 +150,13 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
 };
 
 export const deleteBakeryQuota = async (id: string) => {
-  // Fetch the history for this quota to determine if we should revert or fully delete
   const history = await getBakeryQuotaHistory(id);
 
   if (history.length > 1) {
-    // If there's more than one history entry, revert to the previous state
-    const secondLastEntry = history[1]; // The entry before the most recent one
+    const secondLastEntry = history[1];
     const previousQuotaValue = secondLastEntry.new_quota_value;
 
     if (previousQuotaValue !== undefined && previousQuotaValue !== null) {
-      // Update the main bakery_quotas record with the previous value
       const { error: updateError } = await supabase
         .from('bakery_quotas')
         .update({ quota_value: previousQuotaValue, updated_at: new Date().toISOString() })
@@ -170,18 +167,15 @@ export const deleteBakeryQuota = async (id: string) => {
         throw updateError;
       }
 
-      // Delete only the most recent history entry (the one being "undone")
       const { error: deleteHistoryError } = await supabase
         .from('bakery_quota_history')
         .delete()
-        .eq('id', history[0].id); // history[0] is the most recent entry
+        .eq('id', history[0].id);
 
       if (deleteHistoryError) {
         console.error('Error deleting most recent history entry:', deleteHistoryError);
-        // Don't throw, as the main quota was reverted successfully
       }
     } else {
-      // If previousQuotaValue is somehow null/undefined, proceed with full delete
       console.warn('Previous quota value not found in history, performing full delete.');
       const { error } = await supabase
         .from('bakery_quotas')
@@ -194,8 +188,6 @@ export const deleteBakeryQuota = async (id: string) => {
       }
     }
   } else {
-    // If there's only one or no history entries, perform a full delete of the quota
-    // The ON DELETE CASCADE will handle deleting the single history entry if it exists
     const { error } = await supabase
       .from('bakery_quotas')
       .delete()
@@ -215,7 +207,6 @@ export const importBakeryQuotasFromExcel = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
 
-  // Use the correct function name without the full URL
   const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
     body: formData,
   });
@@ -239,7 +230,7 @@ export const updateBakeryQuotaHistoryEntry = async (
     .from('bakery_quota_history')
     .update(updates)
     .eq('id', historyId)
-    .eq('user_id', user.id) // Ensure only the user who created it can update
+    .eq('user_id', user.id)
     .select()
     .single();
 
@@ -258,7 +249,7 @@ export const deleteBakeryQuotaHistoryEntry = async (historyId: string) => {
     .from('bakery_quota_history')
     .delete()
     .eq('id', historyId)
-    .eq('user_id', user.id); // Ensure only the user who created it can delete
+    .eq('user_id', user.id);
 
   if (error) {
     console.error('Error deleting bakery quota history entry:', error);

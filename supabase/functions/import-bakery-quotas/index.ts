@@ -73,19 +73,26 @@ serve(async (req) => {
         const old_quota_value = parseFloat(row['OLD_AVG_']?.toString() || '0');
         const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
+        
+        // Convert TRUNC_A_OPE_DATE_ to YYYY-MM-DD format for database
         let quota_date: string;
-
         if (raw_quota_date) {
           if (typeof raw_quota_date === 'number') {
+            // Excel serial date to YYYY-MM-DD
             const excelEpoch = new Date(Date.UTC(1899, 11, 30));
             const date = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
-            quota_date = date.toISOString();
+            quota_date = date.toISOString().split('T')[0]; // Get YYYY-MM-DD part
           } else {
+            // Try to parse string date
             const parsedDate = new Date(raw_quota_date);
-            quota_date = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : new Date().toISOString();
+            if (!isNaN(parsedDate.getTime())) {
+              quota_date = parsedDate.toISOString().split('T')[0]; // Get YYYY-MM-DD part
+            } else {
+              quota_date = new Date().toISOString().split('T')[0]; // Default to today
+            }
           }
         } else {
-          quota_date = new Date().toISOString();
+          quota_date = new Date().toISOString().split('T')[0]; // Default to today
         }
 
         const notes = `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`;
@@ -95,7 +102,7 @@ serve(async (req) => {
           continue;
         }
 
-        // Upsert the main bakery record to keep it up-to-date
+        // Upsert the main bakery record with quota_date (YYYY-MM-DD)
         const { data: bakery, error: upsertError } = await supabaseAdmin
           .from('bakery_quotas')
           .upsert(
@@ -103,7 +110,7 @@ serve(async (req) => {
               client_id: client_id,
               client_name: client_name,
               quota_value: new_quota_value,
-              quota_date: quota_date.split('T')[0],
+              quota_date: quota_date, // Store as YYYY-MM-DD
               notes: `Last updated from Excel import.`,
             },
             { onConflict: 'client_id' }
@@ -113,7 +120,7 @@ serve(async (req) => {
 
         if (upsertError) throw upsertError;
 
-        // Always insert a new record into the history table for each row in Excel
+        // Always insert a new record into the history table with current timestamp
         const { error: historyError } = await supabaseAdmin
           .from('bakery_quota_history')
           .insert({
@@ -122,7 +129,8 @@ serve(async (req) => {
             change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
             old_quota_value: old_quota_value,
             new_quota_value: new_quota_value,
-            changed_at: quota_date, // Use the date from Excel as the change date
+            changed_at: new Date().toISOString(), // Use current timestamp with time
+            notes: notes,
           });
 
         if (historyError) {

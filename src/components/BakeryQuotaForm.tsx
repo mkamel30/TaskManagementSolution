@@ -9,14 +9,14 @@ import { Separator } from './ui/separator';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { getBakeryQuotaByClientId } from '@/api/bakery-quotas';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Import Alert components
-import { Info } from 'lucide-react'; // Import Info icon
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
 interface BakeryQuotaFormProps {
   initialData?: BakeryQuota;
-  onSubmit: (quota: BakeryQuotaFormData, existingQuotaId?: string) => Promise<void>; // Modified signature
+  onSubmit: (quota: BakeryQuotaFormData, existingQuotaId?: string) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -25,28 +25,25 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
   onSubmit, 
   onCancel 
 }) => {
-  const isEditing = !!initialData?.id; // Check if it's an existing record being edited
-  const isAddingForExistingClient = !!initialData && !initialData.id; // Check if it's adding a new record for an existing client
+  const isEditing = !!initialData?.id;
+  const isAddingForExistingClient = !!initialData && !initialData.id;
 
   const [formData, setFormData] = useState<BakeryQuotaFormData>({
     client_id: initialData?.client_id || '',
     client_name: initialData?.client_name || '',
-    quota_value: isAddingForExistingClient ? 0 : (initialData?.quota_value || 0), // Reset quota_value for new record
-    quota_date: isAddingForExistingClient ? new Date().toISOString().split('T')[0] : (initialData?.quota_date ? new Date(initialData.quota_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]), // Reset quota_date for new record
+    quota_value: isAddingForExistingClient ? 0 : (initialData?.quota_value || 0),
+    quota_date: isAddingForExistingClient ? new Date().toISOString().split('T')[0] : (initialData?.quota_date ? new Date(initialData.quota_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
     notes: initialData?.notes || '',
   });
   const [previousQuotaValue, setPreviousQuotaValue] = useState<number | null>(null);
   const [isFetchingPreviousQuota, setIsFetchingPreviousQuota] = useState(false);
-  const [existingQuotaForClientId, setExistingQuotaForClientId] = useState<BakeryQuota | null>(null); // New state
+  const [existingQuotaForClientId, setExistingQuotaForClientId] = useState<BakeryQuota | null>(null);
 
-  // If editing, set the previous quota value to the initial data's quota value
   useEffect(() => {
     if (isEditing) {
       setPreviousQuotaValue(initialData.quota_value);
-      setExistingQuotaForClientId(initialData); // If editing, this is the existing one
+      setExistingQuotaForClientId(initialData);
     } else if (isAddingForExistingClient) {
-      // When adding for an existing client, we need to fetch the *actual* current quota value
-      // for the client_id to show as "previous value".
       const fetchExisting = async () => {
         setIsFetchingPreviousQuota(true);
         try {
@@ -78,20 +75,19 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
   };
 
   const handleClientIdBlur = async () => {
-    if (!isEditing && !isAddingForExistingClient && formData.client_id) { // Only for brand new forms and if client_id is entered
+    if (!isEditing && !isAddingForExistingClient && formData.client_id) {
       setIsFetchingPreviousQuota(true);
       try {
         const existingQuota = await getBakeryQuotaByClientId(formData.client_id);
         if (existingQuota) {
           setPreviousQuotaValue(existingQuota.quota_value);
-          setExistingQuotaForClientId(existingQuota); // Store the full object
-          // If client name is empty, pre-fill it from the existing quota
+          setExistingQuotaForClientId(existingQuota);
           if (!formData.client_name) {
             setFormData(prev => ({ ...prev, client_name: existingQuota.client_name }));
           }
         } else {
           setPreviousQuotaValue(null);
-          setExistingQuotaForClientId(null); // No existing quota found
+          setExistingQuotaForClientId(null);
         }
       } catch (error) {
         console.error("Error fetching previous quota:", error);
@@ -101,19 +97,18 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
         setIsFetchingPreviousQuota(false);
       }
     } else if (!isEditing && !isAddingForExistingClient && !formData.client_id) {
-      setPreviousQuotaValue(null); // Clear if client_id is empty
+      setPreviousQuotaValue(null);
       setExistingQuotaForClientId(null);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData, existingQuotaForClientId?.id); // Pass existingQuotaId
+    await onSubmit(formData, existingQuotaForClientId?.id);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* New Alert for existing client */}
       {(!isEditing && existingQuotaForClientId) && (
         <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-200 text-right">
           <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -129,10 +124,10 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
         <Input
           value={formData.client_id}
           onChange={(e) => handleInputChange('client_id', e.target.value)}
-          onBlur={handleClientIdBlur} // Trigger fetch on blur
+          onBlur={handleClientIdBlur}
           required
           dir="rtl"
-          disabled={isEditing || isAddingForExistingClient || isFetchingPreviousQuota} /* Disable client_id when editing, adding for existing, or fetching */
+          disabled={isEditing || isAddingForExistingClient || isFetchingPreviousQuota}
         />
       </div>
       
@@ -147,7 +142,7 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {(isEditing || previousQuotaValue !== null) && ( /* Show if editing OR if a previous value was found */
+        {(isEditing || previousQuotaValue !== null) && (
           <div>
             <Label className="block text-sm font-medium mb-1 text-right">القيمة السابقة للحصة</Label>
             <Input
@@ -173,7 +168,7 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
       </div>
 
       <div>
-        <Label className="block text-sm font-medium mb-1 text-right">تاريخ الحصة</Label>
+        <Label className="block text-sm font-medium mb-1 text-right">تاريخ الحصة (dd.mm.yyyy)</Label>
         <Input
           type="date"
           value={formData.quota_date}
@@ -191,7 +186,7 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
         />
       </div>
       
-      {isEditing && ( // Only show history if editing an existing record
+      {isEditing && (
         <>
           <Separator className="my-4" />
           <BakeryQuotaHistory quotaId={initialData.id} />

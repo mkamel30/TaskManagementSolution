@@ -23,7 +23,9 @@ import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BakeryQuotaTable } from '@/components/BakeryQuotaTable';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Added import
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
@@ -31,12 +33,12 @@ const BakeryQuotasPage = () => {
   const queryClient = useQueryClient();
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingQuota, setEditingQuota] = useState<BakeryQuota | null>(null);
-  const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuota | null>(null); // New state
+  const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuota | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('client_name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('quota_date'); // Default to quota_date
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // Default to descending
 
   const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
     queryKey: ['bakeryQuotas'],
@@ -81,7 +83,7 @@ const BakeryQuotasPage = () => {
       showSuccess('تم تحديث الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
       setEditingQuota(null);
-      setAddingRecordForQuota(null); // Clear this state too
+      setAddingRecordForQuota(null);
     },
     onError: (error) => {
       showError(`خطأ في تحديث الحصة التأمينية: ${error.message}`);
@@ -100,17 +102,17 @@ const BakeryQuotasPage = () => {
     }
   });
 
-  const handleFormSubmit = async (quotaData: BakeryQuotaFormData, existingQuotaId?: string) => { // Modified signature
+  const handleFormSubmit = async (quotaData: BakeryQuotaFormData, existingQuotaId?: string) => {
     const loadingToast = showLoading('جاري حفظ الحصة التأمينية...');
     try {
-      if (editingQuota || existingQuotaId) { // If editing an existing quota or updating an existing client
+      if (editingQuota || existingQuotaId) {
         const idToUpdate = editingQuota?.id || existingQuotaId;
         if (idToUpdate) {
           await updateMutation.mutateAsync({ id: idToUpdate, updates: quotaData });
         } else {
           throw new Error("No ID provided for update operation.");
         }
-      } else { // If creating a brand new quota
+      } else {
         await createMutation.mutateAsync(quotaData);
       }
     } catch (error: any) {
@@ -122,24 +124,22 @@ const BakeryQuotasPage = () => {
 
   const handleEdit = (quota: BakeryQuota) => {
     setEditingQuota(quota);
-    setAddingRecordForQuota(null); // Ensure this is null
+    setAddingRecordForQuota(null);
     setIsFormDialogOpen(true);
   };
 
   const handleAddNewRecordForClient = (quota: BakeryQuota) => {
-    // Create a temporary object for initialData without an ID,
-    // but with client_id, client_name, and notes pre-filled.
     setAddingRecordForQuota({
       client_id: quota.client_id,
       client_name: quota.client_name,
-      quota_value: 0, // Default to 0 or empty for new record
-      quota_date: new Date().toISOString().split('T')[0], // Default to today
+      quota_value: 0,
+      quota_date: new Date().toISOString().split('T')[0],
       notes: quota.notes,
-      id: '', // Important: indicate this is NOT an existing record ID
-      created_at: '', // Will be set by DB
-      updated_at: '', // Will be set by DB
+      id: '',
+      created_at: '',
+      updated_at: '',
     });
-    setEditingQuota(null); // Ensure this is null
+    setEditingQuota(null);
     setIsFormDialogOpen(true);
   };
 
@@ -159,7 +159,7 @@ const BakeryQuotasPage = () => {
   const handleDialogChange = (open: boolean) => {
     if (!open) {
       setEditingQuota(null);
-      setAddingRecordForQuota(null); // Clear when dialog closes
+      setAddingRecordForQuota(null);
     }
     setIsFormDialogOpen(open);
   };
@@ -204,7 +204,6 @@ const BakeryQuotasPage = () => {
 
   const totalBakeries = quotas?.length || 0;
 
-  // Determine which initialData to pass to the form
   const formInitialData = editingQuota || addingRecordForQuota || undefined;
   const dialogTitle = editingQuota 
     ? 'تعديل بيانات المخبز' 
@@ -257,7 +256,7 @@ const BakeryQuotasPage = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="client_name">اسم العميل</SelectItem>
-              <SelectItem value="quota_date">تاريخ آخر تعديل</SelectItem>
+              <SelectItem value="quota_date">تاريخ الحصة</SelectItem>
               <SelectItem value="client_id">كود العميل</SelectItem>
             </SelectContent>
           </Select>
@@ -292,7 +291,7 @@ const BakeryQuotasPage = () => {
             bakeries={bakeriesWithHistoryCount}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
-            onAddRecord={handleAddNewRecordForClient} // Pass the new handler
+            onAddRecord={handleAddNewRecordForClient}
             searchQuery={searchQuery}
           />
         </TabsContent>
