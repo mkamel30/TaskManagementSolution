@@ -25,8 +25,8 @@ export type BakeryQuotaHistoryEntry = {
 
 export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
   // Use the new RPC function to get only the latest quota for each client
-  // The function now uses ORDER BY client_id, quota_date DESC, id DESC
-  // to ensure the record with the latest quota_date is selected, using id as a tie-breaker.
+  // The function now uses ORDER BY client_id, updated_at DESC, id DESC
+  // to ensure the record with the latest updated_at is selected, using id as a tie-breaker.
   const { data, error } = await supabase.rpc('get_latest_bakery_quotas_per_client');
 
   if (error) {
@@ -42,7 +42,7 @@ export const getBakeryQuotaByClientId = async (clientId: string): Promise<Bakery
     .from('bakery_quotas')
     .select('*')
     .eq('client_id', clientId)
-    .order('quota_date', { ascending: false }) // Get the latest by date
+    .order('updated_at', { ascending: false }) // Order by updated_at to get the truly latest record
     .order('id', { ascending: false }) // Tie-breaker: get the one created later
     .limit(1)
     .single(); // Expecting at most one result
@@ -113,9 +113,11 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
     throw fetchError || new Error('Bakery quota not found');
   }
 
+  // The trigger will now handle updated_at, so we don't strictly need to set it here,
+  // but keeping it provides an extra layer of robustness.
   const { data, error } = await supabase
     .from('bakery_quotas')
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update({ ...updates, updated_at: new Date().toISOString() }) 
     .eq('id', id)
     .select()
     .single();
