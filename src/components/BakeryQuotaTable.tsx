@@ -14,18 +14,24 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Edit, Trash2, PlusCircle } from 'lucide-react'; // Added PlusCircle
+import { ChevronDown, ChevronUp, Edit, Trash2, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Highlighter } from './Highlighter';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { BakeryQuotaHistory } from './BakeryQuotaHistory';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"; // Import Tooltip components
 
 interface BakeryQuotaTableProps {
   bakeries: (BakeryQuota & { total_changes_count: number })[];
   onEdit: (quota: BakeryQuota) => void;
   onDelete: (id: string) => void;
-  onAddRecord: (quota: BakeryQuota) => void; // New prop for adding a record
+  onAddRecord: (quota: BakeryQuota) => void;
   searchQuery: string;
 }
 
@@ -33,7 +39,7 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
   bakeries,
   onEdit,
   onDelete,
-  onAddRecord, // Destructure new prop
+  onAddRecord,
   searchQuery,
 }) => {
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
@@ -51,81 +57,104 @@ export const BakeryQuotaTable: React.FC<BakeryQuotaTableProps> = ({
   };
 
   return (
-    <div className="rounded-md border overflow-hidden" dir="rtl">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[50px] text-right">السجل</TableHead>
-            <TableHead className="text-right">كود العميل</TableHead>
-            <TableHead className="text-right">اسم العميل</TableHead>
-            <TableHead className="text-right">الحصة الحالية</TableHead>
-            <TableHead className="text-right">تاريخ آخر تعديل</TableHead>
-            <TableHead className="text-right">إجمالي التغييرات</TableHead>
-            <TableHead className="text-right w-[130px]">الإجراءات</TableHead> {/* Increased width */}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {bakeries.length === 0 ? (
+    <TooltipProvider> {/* Wrap with TooltipProvider */}
+      <div className="rounded-md border overflow-hidden" dir="rtl">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                لا توجد مخابز تطابق بحثك.
-              </TableCell>
+              <TableHead className="w-[50px] text-right">السجل</TableHead>
+              <TableHead className="text-right">كود العميل</TableHead>
+              <TableHead className="text-right">اسم العميل</TableHead>
+              <TableHead className="text-right">الحصة الحالية</TableHead>
+              <TableHead className="text-right">تاريخ آخر تعديل</TableHead>
+              <TableHead className="text-right">إجمالي التغييرات</TableHead>
+              <TableHead className="text-right w-[130px]">الإجراءات</TableHead>
             </TableRow>
-          ) : (
-            bakeries.map((bakery) => (
-              <Collapsible asChild key={bakery.id} open={openGroupId === bakery.id} onOpenChange={() => handleToggleGroup(bakery.id)}>
-                <>
-                  <TableRow 
-                    className="bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer data-[state=open]:ring-2 data-[state=open]:ring-primary/50"
-                  >
-                    <TableCell>
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
-                          <span className="sr-only">Toggle details</span>
-                        </Button>
-                      </CollapsibleTrigger>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <Highlighter text={bakery.client_id} highlight={searchQuery} />
-                    </TableCell>
-                    <TableCell>
-                      <Highlighter text={bakery.client_name} highlight={searchQuery} />
-                    </TableCell>
-                    <TableCell>{bakery.quota_value.toLocaleString('ar-EG')}</TableCell>
-                    <TableCell>
-                      {format(new Date(bakery.quota_date), 'd MMMM yyyy', { locale: ar })}
-                    </TableCell>
-                    <TableCell className="font-bold">
-                      {bakery.total_changes_count}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 justify-end">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onAddRecord(bakery)}> {/* New button */}
-                          <PlusCircle size={16} />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(bakery)}>
-                          <Edit size={16} />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(bakery.id)}>
-                          <Trash2 size={16} />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  <CollapsibleContent asChild>
-                    <TableRow className="bg-gray-100 dark:bg-gray-900">
-                      <TableCell colSpan={7} className="p-4">
-                        <BakeryQuotaHistory quotaId={bakery.id} />
+          </TableHeader>
+          <TableBody>
+            {bakeries.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  لا توجد مخابز تطابق بحثك.
+                </TableCell>
+              </TableRow>
+            ) : (
+              bakeries.map((bakery) => (
+                <Collapsible asChild key={bakery.id} open={openGroupId === bakery.id} onOpenChange={() => handleToggleGroup(bakery.id)}>
+                  <>
+                    <TableRow 
+                      className="bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer data-[state=open]:ring-2 data-[state=open]:ring-primary/50"
+                    >
+                      <TableCell>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
+                            <span className="sr-only">Toggle details</span>
+                          </Button>
+                        </CollapsibleTrigger>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <Highlighter text={bakery.client_id} highlight={searchQuery} />
+                      </TableCell>
+                      <TableCell>
+                        <Highlighter text={bakery.client_name} highlight={searchQuery} />
+                      </TableCell>
+                      <TableCell>{bakery.quota_value.toLocaleString('ar-EG')}</TableCell>
+                      <TableCell>
+                        {format(new Date(bakery.quota_date), 'd MMMM yyyy', { locale: ar })}
+                      </TableCell>
+                      <TableCell className="font-bold">
+                        {bakery.total_changes_count}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 justify-end">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onAddRecord(bakery)}>
+                                <PlusCircle size={16} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>إضافة سجل حصة جديد</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(bakery)}>
+                                <Edit size={16} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>تعديل بيانات المخبز</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(bakery.id)}>
+                                <Trash2 size={16} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>حذف المخبز</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                       </TableCell>
                     </TableRow>
-                  </CollapsibleContent>
-                </>
-              </Collapsible>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </div>
+                    <CollapsibleContent asChild>
+                      <TableRow className="bg-gray-100 dark:bg-gray-900">
+                        <TableCell colSpan={7} className="p-4">
+                          <BakeryQuotaHistory quotaId={bakery.id} />
+                        </TableCell>
+                      </TableRow>
+                    </CollapsibleContent>
+                  </>
+                </Collapsible>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </TooltipProvider>
   );
 };
