@@ -25,8 +25,8 @@ export type BakeryQuotaHistoryEntry = {
 
 export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
   // Use the new RPC function to get only the latest quota for each client
-  // The function now uses ORDER BY client_id, quota_date DESC, updated_at DESC, id DESC
-  // to ensure the record with the latest quota_date is selected.
+  // The function now uses ORDER BY client_id, quota_date DESC, id DESC
+  // to ensure the record with the latest quota_date is selected, using id as a tie-breaker.
   const { data, error } = await supabase.rpc('get_latest_bakery_quotas_per_client');
 
   if (error) {
