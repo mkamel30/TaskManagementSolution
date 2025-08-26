@@ -51,7 +51,7 @@ export const BakeryQuotaHistory: React.FC<BakeryQuotaHistoryProps> = ({ quotaId 
             <div className="absolute -right-[26px] top-1 h-3 w-3 bg-gray-300 dark:bg-gray-600 rounded-full ring-4 ring-background" />
             <p className="font-medium text-sm text-right">{entry.change_description}</p>
             <p className="text-xs text-muted-foreground text-right">
-              بواسطة {entry.user_email} في {format(new Date(entry.changed_at), 'd MMMM yyyy, h:mm a', { locale: ar })}
+              بواسطة {entry.user_email} في {format(new Date(entry.changed_at), 'd MMMM yyyy', { locale: ar })}
             </p>
           </li>
         ))}
