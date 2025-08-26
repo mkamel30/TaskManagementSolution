@@ -60,98 +60,126 @@ serve(async (req) => {
       });
     }
 
-    const results = {
-      total: data.length,
-      processed: 0,
-      errors: [] as string[],
-    };
+    const quotasToUpsert: any[] = [];
+    const historyToInsert: any[] = [];
+    const errors: string[] = [];
 
     for (const row of data) {
       try {
-        const client_id = row['BAKERY_CODE']?.toString().trim() || '';
-        const client_name = row['BAKERY_NAME']?.toString().trim() || '';
+        const client_id = row['BAKERY_CODE']?.toString().trim();
+        const client_name = row['BAKERY_NAME']?.toString().trim();
         const old_quota_value = parseFloat(row['OLD_AVG_']?.toString() || '0');
         const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
         
-        // Convert TRUNC_A_OPE_DATE_ to YYYY-MM-DD format for database
         let quota_date: string;
         if (raw_quota_date) {
           if (typeof raw_quota_date === 'number') {
-            // Excel serial date to YYYY-MM-DD
             const excelEpoch = new Date(Date.UTC(1899, 11, 30));
             const date = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
-            quota_date = date.toISOString().split('T')[0]; // Get YYYY-MM-DD part
+            quota_date = date.toISOString().split('T')[0];
           } else {
-            // Try to parse string date
             const parsedDate = new Date(raw_quota_date);
             if (!isNaN(parsedDate.getTime())) {
-              quota_date = parsedDate.toISOString().split('T')[0]; // Get YYYY-MM-DD part
+              quota_date = parsedDate.toISOString().split('T')[0];
             } else {
-              quota_date = new Date().toISOString().split('T')[0]; // Default to today
+              quota_date = new Date().toISOString().split('T')[0];
             }
           }
         } else {
-          quota_date = new Date().toISOString().split('T')[0]; // Default to today
+          quota_date = new Date().toISOString().split('T')[0];
         }
 
         const notes = `Supply: ${row['SUPPLY_NAME']?.toString() || ''}, Sub-dept: ${row['SUPPLY_SUB_DEPT_NAME']?.toString() || ''}`;
 
         if (!client_id || !client_name) {
-          results.errors.push(`Skipping row with missing data: ${JSON.stringify(row)}`);
+          errors.push(`Skipping row with missing client_id or client_name: ${JSON.stringify(row)}`);
           continue;
         }
 
-        // Upsert the main bakery record with quota_date (YYYY-MM-DD)
-        const { data: bakery, error: upsertError } = await supabaseAdmin
-          .from('bakery_quotas')
-          .upsert(
-            {
-              client_id: client_id,
-              client_name: client_name,
-              quota_value: new_quota_value,
-              quota_date: quota_date, // Store as YYYY-MM-DD
-              notes: `Last updated from Excel import.`,
-            },
-            { onConflict: 'client_id' }
-          )
-          .select()
-          .single();
+        quotasToUpsert.push({
+          client_id: client_id,
+          client_name: client_name,
+          quota_value: new_quota_value,
+          quota_date: quota_date,
+          notes: `Last updated from Excel import.`,
+          updated_at: new Date().toISOString(), // Ensure updated_at is set
+        });
 
-        if (upsertError) throw upsertError;
+        // Store history data temporarily, will link quota_id after upsert
+        historyToInsert.push({
+          client_id: client_id, // Use client_id temporarily to link later
+          user_id: userId,
+          change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
+          old_quota_value: old_quota_value,
+          new_quota_value: new_quota_value,
+          changed_at: quota_date, // Use quota_date for changed_at
+          notes: notes,
+          trunc_a_ope_date_: quota_date, // Also set this column
+        });
 
-        // Always insert a new record into the history table with current timestamp
-        const { error: historyError } = await supabaseAdmin
-          .from('bakery_quota_history')
-          .insert({
-            quota_id: bakery.id,
-            user_id: userId,
-            change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
-            old_quota_value: old_quota_value,
-            new_quota_value: new_quota_value,
-            changed_at: new Date().toISOString(), // Use current timestamp with time
-            notes: notes,
-          });
-
-        if (historyError) {
-          console.error(`Error logging history for client ${client_id}:`, historyError);
-        }
-        
-        results.processed++;
       } catch (error: any) {
-        console.error('Error processing row:', error);
-        results.errors.push(`Error processing row ${JSON.stringify(row)}: ${error.message || error}`);
+        console.error('Error processing row for batch:', error);
+        errors.push(`Error preparing row ${JSON.stringify(row)}: ${error.message || error}`);
       }
     }
 
-    return new Response(JSON.stringify(results), {
+    // Perform batch upsert for bakery_quotas
+    const { data: upsertedBakeries, error: upsertError } = await supabaseAdmin
+      .from('bakery_quotas')
+      .upsert(quotasToUpsert, { onConflict: 'client_id' })
+      .select('id, client_id, quota_value'); // Select id and the new quota_value
+
+    if (upsertError) {
+      console.error('Batch upsert error:', upsertError);
+      throw new Error(`Failed to upsert bakery quotas: ${upsertError.message}`);
+    }
+
+    const bakeryIdMap = new Map<string, { id: string, new_quota_value: number }>();
+    upsertedBakeries.forEach(b => bakeryIdMap.set(b.client_id, { id: b.id, new_quota_value: b.quota_value }));
+
+    // Now, link quota_id to history entries and perform batch insert
+    const finalHistoryEntries = historyToInsert.map(entry => {
+      const bakeryInfo = bakeryIdMap.get(entry.client_id);
+      if (!bakeryInfo) {
+        errors.push(`Could not find bakery ID for client_id: ${entry.client_id} during history creation.`);
+        return null;
+      }
+      return {
+        quota_id: bakeryInfo.id,
+        user_id: entry.user_id,
+        change_description: entry.change_description,
+        old_quota_value: entry.old_quota_value,
+        new_quota_value: entry.new_quota_value,
+        changed_at: entry.changed_at,
+        notes: entry.notes,
+        trunc_a_ope_date_: entry.trunc_a_ope_date_,
+      };
+    }).filter(Boolean); // Remove any null entries if ID mapping failed
+
+    if (finalHistoryEntries.length > 0) {
+      const { error: historyInsertError } = await supabaseAdmin
+        .from('bakery_quota_history')
+        .insert(finalHistoryEntries);
+
+      if (historyInsertError) {
+        console.error('Batch history insert error:', historyInsertError);
+        throw new Error(`Failed to insert bakery quota history: ${historyInsertError.message}`);
+      }
+    }
+
+    return new Response(JSON.stringify({
+      total: data.length,
+      processed: finalHistoryEntries.length, // Number of history entries successfully inserted
+      errors: errors,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 
   } catch (error: any) {
     console.error('Error in import-bakery-quotas edge function:', error);
-    return new Response(JSON.stringify({ error: error.message || error }), {
+    return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred during import.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
