@@ -36,6 +36,24 @@ export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
   return data as BakeryQuota[];
 };
 
+export const getBakeryQuotaByClientId = async (clientId: string): Promise<BakeryQuota | null> => {
+  const { data, error } = await supabase
+    .from('bakery_quotas')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('quota_date', { ascending: false }) // Get the latest by date
+    .limit(1)
+    .single(); // Expecting at most one result
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
+    console.error('Error fetching bakery quota by client ID:', error);
+    throw error;
+  }
+
+  return data as BakeryQuota | null;
+};
+
+
 export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuotaHistoryEntry[]> => {
   const { data, error } = await supabase.rpc('get_bakery_quota_history_with_user', {
     p_quota_id: quotaId,
