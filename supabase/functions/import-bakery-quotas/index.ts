@@ -53,7 +53,7 @@ serve(async (req) => {
       });
     }
 
-    const quotasToUpsert: any[] = [];
+    const latestQuotasMap = new Map<string, any>(); // To store only the latest entry for each client_id
     const historyToInsert: any[] = [];
     const errors: string[] = [];
 
@@ -92,7 +92,8 @@ serve(async (req) => {
           continue;
         }
 
-        quotasToUpsert.push({
+        // Store the latest quota for this client_id in the map
+        latestQuotasMap.set(client_id, {
           client_id: client_id,
           client_name: client_name,
           quota_value: new_quota_value,
@@ -102,7 +103,7 @@ serve(async (req) => {
           updated_at: new Date().toISOString(), // Ensure updated_at is set
         });
 
-        // Store history data temporarily, will link quota_id after upsert
+        // Store history data for every change, will link quota_id after upsert
         historyToInsert.push({
           client_id: client_id, // Use client_id temporarily to link later
           user_id: userId,
@@ -120,7 +121,9 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Edge Function: Prepared ${quotasToUpsert.length} quotas for upsert and ${historyToInsert.length} history entries.`);
+    const quotasToUpsert = Array.from(latestQuotasMap.values()); // Convert map values to array for upsert
+    console.log(`Edge Function: Prepared ${quotasToUpsert.length} unique quotas for upsert and ${historyToInsert.length} history entries.`);
+    console.log('Edge Function: Quotas to upsert payload:', JSON.stringify(quotasToUpsert)); // Log the actual payload
 
     // Perform batch upsert for bakery_quotas
     const { data: upsertedBakeries, error: upsertError } = await supabaseAdmin
