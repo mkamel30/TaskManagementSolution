@@ -49,6 +49,7 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
           onChange={(e) => handleInputChange('client_id', e.target.value)}
           required
           dir="rtl"
+          disabled={!!initialData} {/* Disable client_id when editing */}
         />
       </div>
       
@@ -63,8 +64,21 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {initialData && (
+          <div>
+            <Label className="block text-sm font-medium mb-1 text-right">القيمة السابقة للحصة</Label>
+            <Input
+              type="number"
+              value={initialData.quota_value}
+              disabled
+              dir="rtl"
+              className="bg-gray-100 dark:bg-gray-700"
+            />
+          </div>
+        )}
+        
         <div>
-          <Label className="block text-sm font-medium mb-1 text-right">قيمة الحصة</Label>
+          <Label className="block text-sm font-medium mb-1 text-right">قيمة الحصة (الجديدة)</Label>
           <Input
             type="number"
             value={formData.quota_value}
@@ -73,16 +87,16 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
             dir="rtl"
           />
         </div>
-        
-        <div>
-          <Label className="block text-sm font-medium mb-1 text-right">تاريخ الحصة</Label>
-          <Input
-            type="date"
-            value={formData.quota_date}
-            onChange={(e) => handleInputChange('quota_date', e.target.value)}
-            required
-          />
-        </div>
+      </div>
+
+      <div>
+        <Label className="block text-sm font-medium mb-1 text-right">تاريخ الحصة</Label>
+        <Input
+          type="date"
+          value={formData.quota_date}
+          onChange={(e) => handleInputChange('quota_date', e.target.value)}
+          required
+        />
       </div>
 
       <div>
