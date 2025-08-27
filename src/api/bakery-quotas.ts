@@ -59,7 +59,7 @@ export const getBakeryQuotaByClientId = async (clientId: string): Promise<Bakery
 export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuotaHistoryEntry[]> => {
   const { data, error } = await supabase.rpc('get_bakery_quota_history_with_user', {
     p_quota_id: quotaId,
-  });
+  }).limit(null); // <--- Added .limit(null) here
 
   if (error) {
     console.error('Error fetching bakery quota history:', error);
