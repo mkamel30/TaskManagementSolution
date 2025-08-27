@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Search, Calendar, SortAsc, SortDesc } from 'lucide-react';
+import { PlusCircle, Search, SortAsc, SortDesc } from 'lucide-react';
 import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
@@ -24,8 +24,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BakeryQuotaTable } from '@/components/BakeryQuotaTable';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { format } from 'date-fns';
-import { ar } from 'date-fns/locale';
 import { Pagination } from '@/components/Pagination';
 import { ExportBakeryQuotas } from '@/components/ExportBakeryQuotas';
 
@@ -49,7 +47,7 @@ const BakeryQuotasPage = () => {
   const { data: paginatedData, isLoading, isError, error } = useQuery({
     queryKey: ['bakeryQuotas', currentPage, itemsPerPage, searchQuery, sortBy, sortOrder],
     queryFn: () => getBakeryQuotas(currentPage, itemsPerPage, searchQuery, sortBy, sortOrder),
-    keepPreviousData: true, // Keep previous data while fetching new page
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching new page
   });
 
   const { data: historyCounts } = useQuery({
@@ -112,7 +110,7 @@ const BakeryQuotasPage = () => {
   const handleFormSubmit = async (quotaData: BakeryQuotaFormData, existingQuotaId?: string) => {
     const loadingToast = showLoading('جاري حفظ الحصة التأمينية...');
     try {
-      if (editingQuota || existingQuotaId) {
+      if (editingQuota || addingRecordForQuota) { // Check for both editing and adding new record for existing client
         const idToUpdate = editingQuota?.id || existingQuotaId;
         if (idToUpdate) {
           await updateMutation.mutateAsync({ id: idToUpdate, updates: quotaData });
@@ -142,9 +140,7 @@ const BakeryQuotasPage = () => {
       quota_value: 0,
       quota_date: new Date().toISOString().split('T')[0],
       notes: quota.notes,
-      id: '',
-      created_at: '',
-      updated_at: '',
+      discount_type: quota.discount_type,
     });
     setEditingQuota(null);
     setIsFormDialogOpen(true);
@@ -200,7 +196,7 @@ const BakeryQuotasPage = () => {
         <h1 className="text-2xl font-bold">الحصص التأمينية للمخابز</h1>
         <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
           <DialogTrigger asChild>
-            <Button className="shrink-0 flex items-center gap-2" onClick={() => { setEditingQuota(null); setAddingRecordForQuota(null); }}>
+            <Button className="shrink-0 flex items-center gap-2" onClick={() => { setEditingQuota(null); setAddingRecordForQuota(null); setIsFormDialogOpen(true); }}>
               <PlusCircle className="h-4 w-4" />
               <span>إضافة مخبز جديد</span>
             </Button>
@@ -331,15 +327,3 @@ const BakeryQuotasPage = () => {
 };
 
 export default BakeryQuotasPage;
-
-// Extra lines to allow git to commit
-const extraLine1 = "This is an extra line to force git to commit";
-const extraLine2 = "Another extra line for git commit";
-const extraLine3 = "Third extra line for git commit";
-const extraLine4 = "Fourth extra line for git commit";
-const extraLine5 = "Fifth extra line for git commit";
-const extraLine6 = "Sixth extra line for git commit";
-const extraLine7 = "Seventh extra line for git commit";
-const extraLine8 = "Eighth extra line for git commit";
-const extraLine9 = "Ninth extra line for git commit";
-const extraLine10 = "Tenth extra line for git commit";

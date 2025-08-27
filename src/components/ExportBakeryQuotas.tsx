@@ -27,8 +27,10 @@ export const ExportBakeryQuotas: React.FC = () => {
         const adjustedEndDate = new Date(endDate);
         adjustedEndDate.setHours(23, 59, 59, 999);
 
-        // Fetch all quotas first
-        const allQuotas = await getBakeryQuotas();
+        // Fetch all quotas first (without pagination, search, or sort for export)
+        // We need to fetch all data, so we'll call getBakeryQuotas with a very large itemsPerPage
+        const allQuotasResponse = await getBakeryQuotas(1, 1000000); // Fetch a large number of items
+        const allQuotas = allQuotasResponse.data;
         
         // Filter by date range on the client-side
         const filteredQuotas = allQuotas.filter(quota => {

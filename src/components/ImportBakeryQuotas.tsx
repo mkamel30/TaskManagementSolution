@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { toast } from 'sonner';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
 import { importBakeryQuotasFromExcel } from '@/api/bakery-quotas';
-import { dismissToast } from '@/utils/toast';
+import { dismissToast, showLoading, showError, showSuccess } from '@/utils/toast'; // Import showLoading, showError, showSuccess
 import * as XLSX from 'xlsx';
 import { debugLogger } from '@/utils/debugLogger';
 
@@ -57,6 +57,8 @@ export const ImportBakeryQuotas: React.FC = () => {
     debugLogger.enable(); // Enable logging for this import
     debugLogger.info(`Starting import for file: ${file.name}`);
 
+    const loadingToast = showLoading('جاري استيراد البيانات...'); // Define loadingToast here
+
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -68,7 +70,7 @@ export const ImportBakeryQuotas: React.FC = () => {
           const jsonData = worksheet ? (worksheet['!ref'] ? XLSX.utils.sheet_to_json(worksheet) : []) : [];
 
           if (jsonData.length === 0) {
-            toast.error('لا توجد بيانات في ملف Excel المحدد.');
+            showError('لا توجد بيانات في ملف Excel المحدد.'); // Use showError
             dismissToast(loadingToast);
             setIsUploading(false);
             return;
@@ -88,16 +90,16 @@ export const ImportBakeryQuotas: React.FC = () => {
           debugLogger.info(`Import finished. Processed: ${result.processed}, Errors: ${result.errors.length}`);
           
           if (result && result.processed > 0) {
-            toast.success(`تم استيراد/تحديث ${result.processed} سجل بنجاح!`);
+            showSuccess(`تم استيراد/تحديث ${result.processed} سجل بنجاح!`); // Use showSuccess
           } else {
-            toast.success('تمت معالجة الملف بنجاح!');
+            showSuccess('تمت معالجة الملف بنجاح!'); // Use showSuccess
           }
           
           setFile(null);
           if (fileInputRef.current) fileInputRef.current.value = '';
         } catch (parseError: any) {
           debugLogger.error(`Error parsing Excel file: ${parseError.message}`);
-          toast.error(`خطأ في قراءة ملف Excel: ${parseError.message}`);
+          showError(`خطأ في قراءة ملف Excel: ${parseError.message}`); // Use showError
         } finally {
           dismissToast(loadingToast);
           setIsUploading(false);
@@ -105,7 +107,7 @@ export const ImportBakeryQuotas: React.FC = () => {
       };
       reader.onerror = (error) => {
         debugLogger.error(`FileReader error: ${error}`);
-        toast.error('خطأ في قراءة الملف.');
+        showError('خطأ في قراءة الملف.'); // Use showError
         dismissToast(loadingToast);
         setIsUploading(false);
       };
@@ -113,7 +115,7 @@ export const ImportBakeryQuotas: React.FC = () => {
 
     } catch (error: any) {
       debugLogger.error(`Import error: ${error.message}`);
-      toast.error(`حدث خطأ أثناء الاستيراد: ${error.message}`);
+      showError(`حدث خطأ أثناء الاستيراد: ${error.message}`); // Use showError
       dismissToast(loadingToast);
       setIsUploading(false);
     }
