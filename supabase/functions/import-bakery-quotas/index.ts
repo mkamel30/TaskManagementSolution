@@ -40,14 +40,15 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Edge Function: User ${userId} authenticated.`);
 
-    const { data: chunkData, chunkSize = 100, chunkIndex = 0 } = await req.json();
+    const { data: chunkData, chunkSize = 20, chunkIndex = 0 } = await req.json(); // Use the reduced chunk size
     console.log(`Edge Function: Processing chunk ${chunkIndex + 1} with ${chunkData.length} records.`);
     console.log('Edge Function: Received chunk data sample (first 2 rows):', chunkData.slice(0, 2));
 
     if (!chunkData || chunkData.length === 0) {
-      return new Response(JSON.stringify({ error: 'No data found in the request body for this chunk' }), {
+      console.warn('Edge Function: Received empty chunk data.');
+      return new Response(JSON.stringify({ success: true, created: 0, updated: 0, errors: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 200,
       });
     }
 
@@ -65,7 +66,7 @@ serve(async (req) => {
         const raw_new_quota_value = row['NEW_AVG_'];
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
         const discount_type = row['discount_type']?.toString().trim() || null;
-        const notes = row['ملاحظات']?.toString().trim() || null; // Assuming 'ملاحظات' column
+        const notes = row['ملاحظات']?.toString().trim() || null;
 
         if (!client_id || !client_name) {
           excelErrors.push({ row: globalRowIndex, message: 'كود المخبز أو اسم المخبز مفقود.' });
@@ -74,7 +75,7 @@ serve(async (req) => {
 
         let quota_value: number;
         if (raw_new_quota_value === undefined || raw_new_quota_value === null || isNaN(parseFloat(raw_new_quota_value))) {
-          quota_value = 0; // Default to 0 if not a valid number
+          quota_value = 0;
           excelErrors.push({ row: globalRowIndex, message: `قيمة الحصة (NEW_AVG_) غير صالحة، تم تعيينها إلى 0.` });
         } else {
           quota_value = parseFloat(raw_new_quota_value);
@@ -84,22 +85,20 @@ serve(async (req) => {
         if (raw_quota_date) {
           let parsedDate: Date;
           if (typeof raw_quota_date === 'number') {
-            // Excel date number (days since 1900-01-01, with 1900-02-29 bug)
-            const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // Dec 30, 1899 is day 0 in Excel
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
             parsedDate = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
           } else {
-            // Try parsing as string
             parsedDate = new Date(raw_quota_date);
           }
 
           if (isNaN(parsedDate.getTime())) {
-            quota_date = new Date().toISOString().split('T')[0]; // Default to today
+            quota_date = new Date().toISOString().split('T')[0];
             excelErrors.push({ row: globalRowIndex, message: `تاريخ الحصة (TRUNC_A_OPE_DATE_) غير صالح، تم تعيينه إلى تاريخ اليوم.` });
           } else {
-            quota_date = parsedDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+            quota_date = parsedDate.toISOString().split('T')[0];
           }
         } else {
-          quota_date = new Date().toISOString().split('T')[0]; // Default to today
+          quota_date = new Date().toISOString().split('T')[0];
           excelErrors.push({ row: globalRowIndex, message: `تاريخ الحصة (TRUNC_A_OPE_DATE_) مفقود، تم تعيينه إلى تاريخ اليوم.` });
         }
 
@@ -111,7 +110,7 @@ serve(async (req) => {
           notes,
           discount_type,
           updated_at: new Date().toISOString(),
-          original_row_index: globalRowIndex, // Keep original row index for error reporting
+          original_row_index: globalRowIndex,
         });
         clientIdsInChunk.push(client_id);
 
@@ -122,17 +121,19 @@ serve(async (req) => {
     }
 
     if (processedRecords.length === 0) {
+      console.warn('Edge Function: No valid records could be parsed from this chunk.');
       return new Response(JSON.stringify({ 
-        success: false,
-        error: 'No valid records could be parsed from this chunk.',
+        success: true, // Return success even if no records, but with errors
+        created: 0,
+        updated: 0,
         errors: excelErrors 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 200,
       });
     }
 
-    // Fetch existing quotas for the client_ids in this chunk
+    console.log(`Edge Function: Fetching existing quotas for ${clientIdsInChunk.length} client IDs.`);
     const { data: existingQuotas, error: fetchError } = await supabaseAdmin
       .from('bakery_quotas')
       .select('id, client_id, quota_value, quota_date')
@@ -142,6 +143,7 @@ serve(async (req) => {
       console.error('Edge Function: Error fetching existing quotas for chunk:', fetchError);
       throw new Error(`فشل في جلب البيانات الحالية: ${fetchError.message}`);
     }
+    console.log(`Edge Function: Found ${existingQuotas?.length || 0} existing quotas.`);
 
     const existingQuotaMap = new Map<string, { id: string; quota_value: number; quota_date: string }>();
     existingQuotas?.forEach(q => existingQuotaMap.set(q.client_id, { id: q.id, quota_value: q.quota_value, quota_date: q.quota_date }));
@@ -156,9 +158,8 @@ serve(async (req) => {
       const currentTimestamp = new Date().toISOString();
 
       if (existingQuota) {
-        // Update existing record
         quotasToUpsert.push({ 
-          id: existingQuota.id, // Include ID for update
+          id: existingQuota.id,
           client_id: record.client_id,
           client_name: record.client_name,
           quota_value: record.quota_value,
@@ -169,7 +170,6 @@ serve(async (req) => {
         });
         updatedCount++;
 
-        // Only add history if quota_value or quota_date has changed
         if (existingQuota.quota_value !== record.quota_value || existingQuota.quota_date !== record.quota_date) {
           historyToInsert.push({
             quota_id: existingQuota.id,
@@ -183,7 +183,6 @@ serve(async (req) => {
           });
         }
       } else {
-        // Create new record
         quotasToUpsert.push({
           client_id: record.client_id,
           client_name: record.client_name,
@@ -195,10 +194,9 @@ serve(async (req) => {
           updated_at: currentTimestamp,
         });
         createdCount++;
-        // History for new quotas will be linked after upsert returns IDs
         historyToInsert.push({
-          client_id: record.client_id, // Temporarily store client_id to link history later
-          quota_id: null, // Will be filled after upsert
+          client_id: record.client_id,
+          quota_id: null,
           user_id: userId,
           change_description: `تم إنشاء حصة تأمينية جديدة بقيمة ${record.quota_value} وتاريخ ${record.quota_date}.`,
           old_quota_value: null,
@@ -210,25 +208,24 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Edge Function: Upserting ${quotasToUpsert.length} records (Created: ${createdCount}, Updated: ${updatedCount}).`);
+    console.log(`Edge Function: Performing upsert for ${quotasToUpsert.length} records (Created: ${createdCount}, Updated: ${updatedCount}).`);
 
-    // Perform upsert operation
     const { data: upsertedQuotas, error: upsertError } = await supabaseAdmin
       .from('bakery_quotas')
       .upsert(quotasToUpsert, { onConflict: 'client_id', ignoreDuplicates: false })
-      .select('id, client_id'); // Select ID and client_id to link history
+      .select('id, client_id');
 
     if (upsertError) {
       console.error('Edge Function: Upsert operation failed:', upsertError);
       throw new Error(`فشل في تحديث/إنشاء بيانات المخابز: ${upsertError.message}`);
     }
+    console.log(`Edge Function: Upsert completed. ${upsertedQuotas?.length || 0} records affected.`);
 
-    // Link history entries to newly created quota IDs
     upsertedQuotas?.forEach(upserted => {
       const historyEntry = historyToInsert.find(h => h.client_id === upserted.client_id && h.quota_id === null);
       if (historyEntry) {
         historyEntry.quota_id = upserted.id;
-        delete historyEntry.client_id; // Remove temporary client_id
+        delete historyEntry.client_id;
       }
     });
 
@@ -242,16 +239,16 @@ serve(async (req) => {
 
       if (historyInsertError) {
         console.error('Edge Function: History insert error:', historyInsertError);
-        // Add history errors to the overall errors, but don't fail the whole chunk
         excelErrors.push({ row: 0, message: `خطأ في تسجيل سجل التغييرات: ${historyInsertError.message}` });
       }
     }
+    console.log('Edge Function: History insertion completed.');
 
     return new Response(JSON.stringify({
       success: true,
       created: createdCount,
       updated: updatedCount,
-      errors: excelErrors, // Return all collected errors for this chunk
+      errors: excelErrors,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

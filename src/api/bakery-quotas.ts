@@ -200,7 +200,7 @@ export const deleteBakeryQuota = async (id: string) => {
 };
 
 export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?: (progress: number) => void) => {
-  const CHUNK_SIZE = 100; // Process 100 records at a time
+  const CHUNK_SIZE = 20; // Reduced chunk size to make each Edge Function call lighter
   let totalProcessed = 0;
   let totalCreated = 0;
   let totalUpdated = 0;
@@ -239,9 +239,8 @@ export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?:
         onProgress(progress);
       }
     } else {
-      // If the edge function returns success: false, it means there was a specific error
       console.error(`Client: Edge function reported error for chunk ${chunkIndex + 1}:`, data.error);
-      allErrors = [...allErrors, ...data.errors]; // Aggregate errors reported by the edge function
+      allErrors = [...allErrors, ...data.errors];
       throw new Error(data.error || `حدث خطأ غير معروف أثناء معالجة الجزء ${chunkIndex + 1}.`);
     }
   }
