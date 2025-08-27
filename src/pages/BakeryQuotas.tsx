@@ -36,7 +36,8 @@ const BakeryQuotasPage = () => {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingQuota, setEditingQuota] = useState<BakeryQuota | null>(null);
   const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuota | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // For input field
+  const [submittedSearchQuery, setSubmittedSearchQuery] = useState(''); // For actual query to API
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('quota_date');
@@ -47,8 +48,9 @@ const BakeryQuotasPage = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const { data: paginatedResponse, isLoading, isError } = useQuery({
-    queryKey: ['bakeryQuotas', currentPage, itemsPerPage, searchQuery, sortBy, sortOrder],
-    queryFn: () => getPaginatedBakeryQuotas(currentPage, itemsPerPage, searchQuery, sortBy, sortOrder),
+    queryKey: ['bakeryQuotas', currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder],
+    queryFn: () => getPaginatedBakeryQuotas(currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder),
+    enabled: !!submittedSearchQuery, // Only fetch if a search query is submitted
   });
 
   const bakeries = paginatedResponse?.data || [];
@@ -60,6 +62,10 @@ const BakeryQuotasPage = () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
       showSuccess('تم إنشاء الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
+      // If a new item is created, and there's an active search, re-run the search
+      if (submittedSearchQuery) {
+        setSubmittedSearchQuery(searchQuery); // Re-trigger search with current input
+      }
     },
     onError: (error) => {
       showError(`خطأ في إنشاء الحصة التأمينية: ${error.message}`);
@@ -74,6 +80,10 @@ const BakeryQuotasPage = () => {
       setIsFormDialogOpen(false);
       setEditingQuota(null);
       setAddingRecordForQuota(null);
+      // If an item is updated, and there's an active search, re-run the search
+      if (submittedSearchQuery) {
+        setSubmittedSearchQuery(searchQuery); // Re-trigger search with current input
+      }
     },
     onError: (error) => {
       showError(`خطأ في تحديث الحصة التأمينية: ${error.message}`);
@@ -85,6 +95,10 @@ const BakeryQuotasPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
       showSuccess('تم حذف الحصة التأمينية بنجاح');
+      // If an item is deleted, and there's an active search, re-run the search
+      if (submittedSearchQuery) {
+        setSubmittedSearchQuery(searchQuery); // Re-trigger search with current input
+      }
     },
     onError: (error) => {
       showError(`خطأ في حذف الحصة التأمينية: ${error.message}`);
@@ -151,18 +165,26 @@ const BakeryQuotasPage = () => {
     setIsFormDialogOpen(open);
   };
 
-  // Reset page to 1 when search, sort, or items per page changes
+  const handleSearchButtonClick = () => {
+    setSubmittedSearchQuery(searchQuery);
+    setCurrentPage(1); // Reset to first page on new search
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearchButtonClick();
+    }
+  };
+
+  // Reset page to 1 when sort or items per page changes (but not search, as that's handled by handleSearchButtonClick)
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, sortBy, sortOrder, itemsPerPage]);
+  }, [sortBy, sortOrder, itemsPerPage]);
 
   const formInitialData = editingQuota || addingRecordForQuota || undefined;
   const dialogTitle = editingQuota 
     ? 'تعديل بيانات المخبز' 
     : (addingRecordForQuota ? `إضافة سجل جديد لـ ${addingRecordForQuota.client_name}` : 'إضافة مخبز جديد');
-
-  if (isLoading) return <div className="text-center p-8">جاري تحميل بيانات المخابز...</div>;
-  if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز</div>;
 
   return (
     <div className="space-y-6">
@@ -190,79 +212,114 @@ const BakeryQuotasPage = () => {
         </Dialog>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative flex-grow max-w-lg">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="بحث بالكود أو اسم المخبز..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pr-10 text-right"
-          />
-        </div>
-        
-        <div className="flex gap-2 items-center">
-          <Select value={sortBy} onValueChange={(value: 'client_name' | 'quota_date' | 'client_id') => setSortBy(value)}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="الترتيب حسب" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="client_name">اسم العميل</SelectItem>
-              <SelectItem value="quota_date">تاريخ الحصة</SelectItem>
-              <SelectItem value="client_id">كود العميل</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="flex items-center gap-1"
-          >
-            {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-right">نظرة عامة</CardTitle>
+      <Card className="p-6">
+        <CardHeader className="p-0 mb-4">
+          <CardTitle className="text-right flex items-center gap-2">
+            <Search className="h-5 w-5" />
+            <span>بحث عن مخبز</span>
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p>إجمالي عدد المخابز: {totalBakeriesCount}</p>
+        <CardContent className="p-0 flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative flex-grow w-full">
+            <Input
+              placeholder="بحث بالكود أو اسم المخبز أو نوع الخصم..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="pr-4 text-right"
+            />
+          </div>
+          <Button onClick={handleSearchButtonClick} className="w-full md:w-auto shrink-0">
+            <Search className="h-4 w-4 ml-2" />
+            بحث
+          </Button>
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="quotas" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="quotas">بيانات المخابز</TabsTrigger>
-          <TabsTrigger value="import">استيراد من Excel</TabsTrigger>
-          <TabsTrigger value="export">تصدير إلى Excel</TabsTrigger>
-        </TabsList>
-        <TabsContent value="quotas" className="space-y-4">
-          <BakeryQuotaTable
-            bakeries={bakeries}
-            onEdit={handleEdit}
-            onDelete={handleDeleteRequest}
-            onAddRecord={handleAddNewRecordForClient}
-            searchQuery={searchQuery}
-          />
-          {totalBakeriesCount > itemsPerPage && (
-            <Pagination
-              totalItems={totalBakeriesCount}
-              itemsPerPage={itemsPerPage}
-              currentPage={currentPage}
-              onPageChange={setCurrentPage}
-            />
-          )}
-        </TabsContent>
-        <TabsContent value="import" className="space-y-4">
-          <ImportBakeryQuotas />
-        </TabsContent>
-        <TabsContent value="export" className="space-y-4">
-          <ExportBakeryQuotas />
-        </TabsContent>
-      </Tabs>
+      {submittedSearchQuery ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-right">نظرة عامة</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <p>جاري تحميل العدد الإجمالي...</p>
+              ) : isError ? (
+                <p className="text-red-500">خطأ في تحميل العدد الإجمالي.</p>
+              ) : (
+                <p>إجمالي عدد المخابز المطابقة: {totalBakeriesCount}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="flex gap-2 items-center justify-end">
+            <Select value={sortBy} onValueChange={(value: 'client_name' | 'quota_date' | 'client_id') => setSortBy(value)}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="الترتيب حسب" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="client_name">اسم العميل</SelectItem>
+                <SelectItem value="quota_date">تاريخ الحصة</SelectItem>
+                <SelectItem value="client_id">كود العميل</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="flex items-center gap-1"
+            >
+              {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+            </Button>
+          </div>
+
+          <Tabs defaultValue="quotas" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="quotas">بيانات المخابز</TabsTrigger>
+              <TabsTrigger value="import">استيراد من Excel</TabsTrigger>
+              <TabsTrigger value="export">تصدير إلى Excel</TabsTrigger>
+            </TabsList>
+            <TabsContent value="quotas" className="space-y-4">
+              {isLoading ? (
+                <div className="text-center p-8">جاري تحميل بيانات المخابز...</div>
+              ) : isError ? (
+                <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز</div>
+              ) : (
+                <>
+                  <BakeryQuotaTable
+                    bakeries={bakeries}
+                    onEdit={handleEdit}
+                    onDelete={handleDeleteRequest}
+                    onAddRecord={handleAddNewRecordForClient}
+                    searchQuery={submittedSearchQuery}
+                  />
+                  {totalBakeriesCount > itemsPerPage && (
+                    <Pagination
+                      totalItems={totalBakeriesCount}
+                      itemsPerPage={itemsPerPage}
+                      currentPage={currentPage}
+                      onPageChange={setCurrentPage}
+                    />
+                  )}
+                </>
+              )}
+            </TabsContent>
+            <TabsContent value="import" className="space-y-4">
+              <ImportBakeryQuotas />
+            </TabsContent>
+            <TabsContent value="export" className="space-y-4">
+              <ExportBakeryQuotas />
+            </TabsContent>
+          </Tabs>
+        </>
+      ) : (
+        <Card className="text-center py-16 text-gray-500 dark:text-gray-400">
+          <h3 className="text-lg font-semibold">يرجى إدخال مصطلح بحث لعرض بيانات المخابز.</h3>
+          <p className="text-sm">يمكنك البحث بكود العميل، اسم العميل، الملاحظات، أو نوع الخصم.</p>
+        </Card>
+      )}
 
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
         <AlertDialogContent dir="rtl">
