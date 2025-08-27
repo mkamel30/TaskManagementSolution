@@ -48,13 +48,11 @@ export const BakeryQuotaHistory: React.FC<BakeryQuotaHistoryProps> = ({ quotaId 
     enabled: !!quotaId,
   });
 
-  console.log(`History for quotaId ${quotaId}:`, history); // Debug log
-
   const deleteMutation = useMutation({
     mutationFn: deleteBakeryQuotaHistoryEntry,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistory', quotaId] });
-      queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] }); // Invalidate main quotas to update total_changes_count
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistoryCounts'] }); // Invalidate counts as well
       showSuccess('تم حذف سجل التغيير بنجاح.');
     },
     onError: (error) => {
@@ -137,15 +135,10 @@ export const BakeryQuotaHistory: React.FC<BakeryQuotaHistoryProps> = ({ quotaId 
       <ul className="space-y-4 border-r-2 border-gray-200 dark:border-gray-700 pr-4 mr-1">
         {history.map((entry) => (
           <li key={entry.id} className="relative group">
-            <div className="absolute -right-[26px] top-1 w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full ring-4 ring-background" />
+            <div className="absolute -right-[26px] top-1 h-3 w-3 bg-gray-300 dark:bg-gray-600 rounded-full ring-4 ring-background" />
             <div className="flex justify-between items-start gap-2">
               <div className="flex-grow">
                 <p className="font-medium text-sm text-right">{entry.change_description}</p>
-                {(entry.old_quota_value !== undefined && entry.new_quota_value !== undefined) && (
-                  <p className="text-xs text-muted-foreground text-right mt-0.5">
-                    القيمة: من <span className="font-semibold">{entry.old_quota_value}</span> إلى <span className="font-semibold">{entry.new_quota_value}</span>
-                  </p>
-                )}
                 {entry.notes && (
                   <p className="text-xs text-muted-foreground text-right mt-0.5">
                     ملاحظات: {entry.notes}
