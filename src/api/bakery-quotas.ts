@@ -199,17 +199,52 @@ export const deleteBakeryQuota = async (id: string) => {
   }
 };
 
-export const importBakeryQuotasFromExcel = async (excelData: any[]) => {
-  const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
-    body: { data: excelData },
-  });
+export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?: (progress: number) => void) => {
+  const chunkSize = 100;
+  const totalChunks = Math.ceil(excelData.length / chunkSize);
+  let currentChunk = 0;
+  
+  let totalProcessed = 0;
+  let totalCreated = 0;
+  let totalUpdated = 0;
+  let allErrors: { row: number; message: string }[] = [];
 
-  if (error) {
-    console.error('Error importing bakery quotas:', error);
-    throw error;
+  while (currentChunk < totalChunks) {
+    const chunkData = excelData.slice(currentChunk * chunkSize, (currentChunk + 1) * chunkSize);
+    
+    const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
+      body: { 
+        data: chunkData,
+        chunkSize,
+        currentChunk
+      },
+    });
+
+    if (error) {
+      console.error('Error importing bakery quotas chunk:', error);
+      throw error;
+    }
+
+    totalProcessed += data.processed;
+    totalCreated += data.created;
+    totalUpdated += data.updated;
+    allErrors = [...allErrors, ...data.errors];
+
+    if (onProgress) {
+      const progress = ((currentChunk + 1) / totalChunks) * 100;
+      onProgress(progress);
+    }
+
+    currentChunk++;
   }
 
-  return data;
+  return {
+    total: excelData.length,
+    processed: totalProcessed,
+    created: totalCreated,
+    updated: totalUpdated,
+    errors: allErrors,
+  };
 };
 
 export const updateBakeryQuotaHistoryEntry = async (

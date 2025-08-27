@@ -41,8 +41,8 @@ serve(async (req) => {
     console.log(`Edge Function: User ${userId} authenticated.`);
 
     // Expecting JSON data directly from the client
-    const { data: excelData } = await req.json();
-    console.log(`Edge Function: Received ${excelData.length} rows to process.`);
+    const { data: excelData, chunkSize = 100, currentChunk = 0 } = await req.json();
+    console.log(`Edge Function: Processing chunk ${currentChunk + 1} with ${chunkSize} records.`);
 
     if (!excelData || excelData.length === 0) {
       console.warn('Edge Function: No data found in the request body.');
@@ -52,6 +52,13 @@ serve(async (req) => {
       });
     }
 
+    const startIdx = currentChunk * chunkSize;
+    const endIdx = Math.min(startIdx + chunkSize, excelData.length);
+    const chunkData = excelData.slice(startIdx, endIdx);
+    
+    const totalChunks = Math.ceil(excelData.length / chunkSize);
+    const progress = ((currentChunk + 1) / totalChunks) * 100;
+
     const latestQuotasMap = new Map<string, any>();
     const historyToInsert: any[] = [];
     const errors: { row: number; message: string }[] = [];
@@ -59,9 +66,9 @@ serve(async (req) => {
     let createdCount = 0;
     let updatedCount = 0;
 
-    for (let i = 0; i < excelData.length; i++) {
-      const row = excelData[i];
-      const rowIndex = i + 1; // 1-based index for user feedback
+    for (let i = 0; i < chunkData.length; i++) {
+      const row = chunkData[i];
+      const globalRowIndex = startIdx + i + 1; // 1-based index for user feedback
 
       try {
         const client_id = row['BAKERY_CODE']?.toString().trim();
@@ -92,7 +99,7 @@ serve(async (req) => {
         const notes = null;
 
         if (!client_id || !client_name) {
-          errors.push({ row: rowIndex, message: 'كود العميل أو اسم العميل مفقود' });
+          errors.push({ row: globalRowIndex, message: 'كود العميل أو اسم العميل مفقود' });
           continue;
         }
 
@@ -128,13 +135,13 @@ serve(async (req) => {
         processedCount++;
 
       } catch (error: any) {
-        console.error(`Edge Function: Error processing row ${rowIndex}:`, error);
-        errors.push({ row: rowIndex, message: `خطأ في معالجة الصف: ${error.message || 'خطأ غير معروف'}` });
+        console.error(`Edge Function: Error processing row ${globalRowIndex}:`, error);
+        errors.push({ row: globalRowIndex, message: `خطأ في معالجة الصف: ${error.message || 'خطأ غير معروف'}` });
       }
     }
 
     const quotasToUpsert = Array.from(latestQuotasMap.values());
-    console.log(`Edge Function: Prepared ${quotasToUpsert.length} unique quotas for upsert.`);
+    console.log(`Edge Function: Prepared ${quotasToUpsert.length} unique quotas for upsert in chunk ${currentChunk + 1}.`);
 
     const { data: upsertedBakeries, error: upsertError } = await supabaseAdmin
       .from('bakery_quotas')
@@ -184,6 +191,8 @@ serve(async (req) => {
       created: createdCount,
       updated: updatedCount,
       errors: errors,
+      progress: progress,
+      isLastChunk: currentChunk === totalChunks - 1,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
