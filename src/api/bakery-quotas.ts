@@ -201,7 +201,7 @@ export const deleteBakeryQuota = async (id: string) => {
 
 export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?: (progress: number) => void) => {
   const CHUNK_SIZE = 100; // Process 100 records at a time
-  let totalProcessed = 0;
+  let totalProcessed = 0; // This will track overall processed rows
   let totalCreated = 0;
   let totalUpdated = 0;
   let allErrors: { row: number; message: string }[] = [];
@@ -211,36 +211,36 @@ export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?:
   for (let i = 0; i < totalChunks; i++) {
     const chunkIndex = i;
     const startIndex = chunkIndex * CHUNK_SIZE;
-    const endIndex = Math.min(startIndex + CHUNK_SIZE, excelData.length);
-    const chunkData = excelData.slice(startIndex, endIndex);
+    const chunkToSend = excelData.slice(startIndex, startIndex + CHUNK_SIZE);
 
-    console.log(`Processing chunk ${chunkIndex + 1}/${totalChunks} (records ${startIndex + 1}-${endIndex})`);
+    console.log(`Client: Sending chunk ${chunkIndex + 1}/${totalChunks} (records ${startIndex + 1}-${startIndex + chunkToSend.length})`);
 
     const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
       body: { 
-        data: chunkData, 
+        data: chunkToSend, // Send the actual chunk
         chunkSize: CHUNK_SIZE, 
         chunkIndex 
       },
     });
 
     if (error) {
-      console.error(`Error processing chunk ${chunkIndex + 1}:`, error);
+      console.error(`Client: Error processing chunk ${chunkIndex + 1}:`, error);
       throw new Error(`فشل في معالجة الجزء ${chunkIndex + 1}: ${error.message}`);
     }
 
     if (data.success) {
-      totalProcessed = data.totalProcessed;
+      totalProcessed += chunkToSend.length; // Update total processed based on the chunk sent
       totalCreated += data.created;
       totalUpdated += data.updated;
       allErrors = [...allErrors, ...data.errors];
       
-      // Update progress
       const progress = (totalProcessed / excelData.length) * 100;
       if (onProgress) {
         onProgress(progress);
       }
     } else {
+      // This case should ideally not be hit if the edge function returns success: true
+      // but if it returns success: false with an error message, handle it.
       throw new Error(data.error || 'حدث خطأ غير معروف أثناء معالجة الجزء.');
     }
   }

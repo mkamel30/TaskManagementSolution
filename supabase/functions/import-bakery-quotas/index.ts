@@ -40,32 +40,26 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Edge Function: User ${userId} authenticated.`);
 
-    const { data: excelData, chunkSize = 100, chunkIndex = 0 } = await req.json();
-    console.log(`Edge Function: Processing chunk ${chunkIndex + 1} with ${chunkSize} records.`);
+    // Receive the chunk data directly, as the client is already sending chunks
+    const { data: chunkData, chunkSize = 100, chunkIndex = 0 } = await req.json();
+    console.log(`Edge Function: Processing chunk ${chunkIndex + 1} with ${chunkData.length} records.`);
 
-    if (!excelData || excelData.length === 0) {
-      return new Response(JSON.stringify({ error: 'No data found in the request body' }), {
+    if (!chunkData || chunkData.length === 0) {
+      return new Response(JSON.stringify({ error: 'No data found in the request body for this chunk' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
     }
-
-    // Process only the current chunk
-    const startIndex = chunkIndex * chunkSize;
-    const endIndex = Math.min(startIndex + chunkSize, excelData.length);
-    const chunkData = excelData.slice(startIndex, endIndex);
-    
-    console.log(`Edge Function: Processing records ${startIndex + 1} to ${endIndex} of ${excelData.length}.`);
 
     const finalQuotaMap = new Map<string, any>();
     const excelErrors: { row: number; message: string }[] = [];
 
     for (let i = 0; i < chunkData.length; i++) {
       const row = chunkData[i];
-      const globalRowIndex = startIndex + i + 1; // Calculate the actual row number in the full file
+      // Calculate the actual row number in the full file for error reporting
+      const globalRowIndex = (chunkIndex * chunkSize) + i + 1; 
 
       try {
-        // Use exact column names from your Excel file
         const client_id = row['كود المخبز']?.toString().trim();
         const client_name = row['اسم المخبز']?.toString().trim();
         const new_quota_value = parseFloat(row['NEW_AVG_'] || '0');
@@ -119,16 +113,15 @@ serve(async (req) => {
     const clientIdsInChunk = Array.from(finalQuotaMap.keys());
     const { data: existingQuotas, error: fetchError } = await supabaseAdmin
       .from('bakery_quotas')
-      .select('client_id, quota_value, quota_date')
-      .in('client_id', clientIdsInChunk);
+      .select('id, client_id, quota_value, quota_date'); // Select 'id' to link history
 
     if (fetchError) {
       console.error('Edge Function: Error fetching existing quotas:', fetchError);
       throw new Error(`فشل في جلب البيانات الحالية: ${fetchError.message}`);
     }
 
-    const existingQuotaMap = new Map<string, { quota_value: number; quota_date: string }>();
-    existingQuotas?.forEach(q => existingQuotaMap.set(q.client_id, { quota_value: q.quota_value, quota_date: q.quota_date }));
+    const existingQuotaMap = new Map<string, { id: string; quota_value: number; quota_date: string }>();
+    existingQuotas?.forEach(q => existingQuotaMap.set(q.client_id, { id: q.id, quota_value: q.quota_value, quota_date: q.quota_date }));
 
     const quotasToCreate: any[] = [];
     const quotasToUpdate: any[] = [];
@@ -139,9 +132,9 @@ serve(async (req) => {
 
       if (existingQuota) {
         if (existingQuota.quota_value !== finalQuota.quota_value || existingQuota.quota_date !== finalQuota.quota_date) {
-          quotasToUpdate.push(finalQuota);
+          quotasToUpdate.push({ ...finalQuota, id: existingQuota.id }); // Include ID for update
           historyToInsert.push({
-            quota_id: null,
+            quota_id: existingQuota.id, // Link to existing quota ID
             user_id: userId,
             change_description: `تم تغيير الحصة من ${existingQuota.quota_value} إلى ${finalQuota.quota_value}`,
             old_quota_value: existingQuota.quota_value,
@@ -153,8 +146,10 @@ serve(async (req) => {
         }
       } else {
         quotasToCreate.push(finalQuota);
+        // History for new quotas will be linked after creation
         historyToInsert.push({
-          quota_id: null,
+          client_id: finalQuota.client_id, // Temporarily store client_id to link history later
+          quota_id: null, // Will be filled after insert
           user_id: userId,
           change_description: `تم إنشاء حصة تأمينية جديدة بقيمة ${finalQuota.quota_value}`,
           old_quota_value: null,
@@ -174,7 +169,7 @@ serve(async (req) => {
 
     // Process creations in smaller batches
     if (quotasToCreate.length > 0) {
-      const batchSize = 10; // Even smaller batches for creations
+      const batchSize = 10;
       for (let i = 0; i < quotasToCreate.length; i += batchSize) {
         const batch = quotasToCreate.slice(i, i + batchSize);
         const { data: createdQuotas, error: createError } = await supabaseAdmin
@@ -190,8 +185,12 @@ serve(async (req) => {
         } else {
           createdCount += createdQuotas?.length || 0;
           createdQuotas?.forEach(created => {
+            // Link history entries to the newly created quota IDs
             const historyEntry = historyToInsert.find(h => h.client_id === created.client_id && h.quota_id === null);
-            if (historyEntry) historyEntry.quota_id = created.id;
+            if (historyEntry) {
+              historyEntry.quota_id = created.id;
+              delete historyEntry.client_id; // Remove temporary client_id
+            }
           });
         }
       }
@@ -199,38 +198,25 @@ serve(async (req) => {
 
     // Process updates in smaller batches
     if (quotasToUpdate.length > 0) {
-      const batchSize = 10; // Even smaller batches for updates
+      const batchSize = 10;
       for (let i = 0; i < quotasToUpdate.length; i += batchSize) {
         const batch = quotasToUpdate.slice(i, i + batchSize);
         const updatePromises = batch.map(async quota => {
           const { error: updateError } = await supabaseAdmin
             .from('bakery_quotas')
             .update({ ...quota, updated_at: new Date().toISOString() })
-            .eq('client_id', quota.client_id);
+            .eq('id', quota.id); // Update by ID
 
           if (updateError) {
             console.error('Edge Function: Update error for client_id:', quota.client_id, updateError);
             allErrors.push({ row: 0, message: `فشل تحديث سجل العميل ${quota.client_id}: ${updateError.message}` });
             return null;
           }
-
-          const { data: updatedQuota } = await supabaseAdmin
-            .from('bakery_quotas')
-            .select('id')
-            .eq('client_id', quota.client_id)
-            .single();
-          
-          return updatedQuota?.id;
+          return quota.id; // Return the ID of the updated quota
         });
 
         const updatedIds = await Promise.all(updatePromises);
-        const successfulUpdates = updatedIds.filter(id => id !== null);
-        updatedCount += successfulUpdates.length;
-
-        successfulUpdates.forEach(id => {
-          const historyEntry = historyToInsert.find(h => h.quota_id === null && h.new_quota_value !== null);
-          if (historyEntry && id) historyEntry.quota_id = id;
-        });
+        updatedCount += updatedIds.filter(id => id !== null).length;
       }
     }
 
@@ -246,20 +232,12 @@ serve(async (req) => {
       }
     }
 
-    // Check if this is the last chunk
-    const isLastChunk = endIndex >= excelData.length;
-    const totalProcessed = endIndex;
-
+    // Simplified response for the client to aggregate
     return new Response(JSON.stringify({
       success: true,
-      chunkIndex,
-      chunkSize,
-      totalProcessed,
-      totalInFile: excelData.length,
-      isLastChunk,
       created: createdCount,
       updated: updatedCount,
-      errors: allErrors,
+      errors: allErrors, // Errors specific to this chunk
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
