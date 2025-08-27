@@ -28,8 +28,7 @@ export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
   const { data, error } = await supabase
     .from('bakery_quotas')
     .select('*')
-    .order('quota_date', { ascending: false })
-    .limit(null); // <--- Added this line to fetch all records
+    .order('quota_date', { ascending: false }); // Removed .limit(null) for debugging
 
   if (error) {
     console.error('Error fetching bakery quotas:', error);
@@ -59,7 +58,7 @@ export const getBakeryQuotaByClientId = async (clientId: string): Promise<Bakery
 export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuotaHistoryEntry[]> => {
   const { data, error } = await supabase.rpc('get_bakery_quota_history_with_user', {
     p_quota_id: quotaId,
-  }).limit(null); // <--- Added .limit(null) here
+  }).limit(null);
 
   if (error) {
     console.error('Error fetching bakery quota history:', error);
