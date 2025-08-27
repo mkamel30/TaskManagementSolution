@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
+import { Input } from '@/components/ui/input';
 import { Label } from './ui/label';
 import { toast } from 'sonner';
 import { Upload, FileSpreadsheet, Eye, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react';
@@ -23,6 +23,7 @@ export const ImportBakeryQuotas: React.FC = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [progress, setProgress] = useState(0);
+  const [fullExcelData, setFullExcelData] = useState<any[]>([]); // Store the complete data here
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -50,7 +51,10 @@ export const ImportBakeryQuotas: React.FC = () => {
           return;
         }
 
-        setPreviewData(jsonData.slice(0, 5)); // Show only first 5 rows for preview
+        // Store the complete data
+        setFullExcelData(jsonData);
+        // Set preview data to first 5 rows only
+        setPreviewData(jsonData.slice(0, 5));
       } catch (parseError: any) {
         console.error('Error parsing Excel file:', parseError);
         toast.error(`خطأ في قراءة ملف Excel: ${parseError.message}`);
@@ -60,7 +64,7 @@ export const ImportBakeryQuotas: React.FC = () => {
   };
 
   const handleImport = async () => {
-    if (!file || previewData.length === 0) {
+    if (!file || fullExcelData.length === 0) {
       toast.error('يرجى اختيار ملف Excel أولاً');
       return;
     }
@@ -70,7 +74,8 @@ export const ImportBakeryQuotas: React.FC = () => {
     const loadingToast = toast.loading('جاري معالجة الملف...');
 
     try {
-      const result = await importBakeryQuotasFromExcel(previewData, (progress) => {
+      // Use the fullExcelData instead of previewData for the actual import
+      const result = await importBakeryQuotasFromExcel(fullExcelData, (progress) => {
         setProgress(progress);
       });
       
@@ -98,6 +103,7 @@ export const ImportBakeryQuotas: React.FC = () => {
   const resetImport = () => {
     setFile(null);
     setPreviewData([]);
+    setFullExcelData([]); // Also reset the full data
     setShowPreview(false);
     setImportResult(null);
     setProgress(0);
@@ -170,7 +176,7 @@ export const ImportBakeryQuotas: React.FC = () => {
           <div className="space-y-4">
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
               <p className="text-sm text-blue-800 dark:text-blue-200 text-right">
-                تم العثور على <span className="font-bold">{previewData.length}</span> صف في الملف المعاينة. سيتم استيراد جميع الصفوف.
+                تم العثور على <span className="font-bold">{fullExcelData.length}</span> صف في الملف المعاينة. سيتم استيراد جميع الصفوف.
               </p>
             </div>
             <div className="border rounded-lg overflow-hidden">
