@@ -1,8 +1,8 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, ListTodo, BarChart3, LogOut, Building, Wrench } from 'lucide-react'; // Changed Tool to Wrench
+import { Menu, ListTodo, BarChart3, LogOut, Building, Wrench } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/components/AuthManager';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,6 +37,7 @@ export const Sidebar: React.FC = () => {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
 
@@ -50,13 +51,34 @@ export const Sidebar: React.FC = () => {
     if (isMobile) setIsSheetOpen(false);
   };
 
-  // Navigation items now point to the main page, and tabs will handle internal routing
+  // Determine active tab from URL search params
+  const currentTab = searchParams.get('tab') || 'tasks'; // Default to 'tasks' if no tab param
+
   const navigationItems = [
-    { to: '/', label: 'المهام', icon: ListTodo, isActive: location.pathname === '/' },
-    { to: '/reports', label: 'التقارير', icon: BarChart3, isActive: location.pathname === '/reports' },
-    // The following links will now navigate to the main page and rely on tabs to show the content
-    { to: '/', label: 'حصص المخابز', icon: Building, isActive: location.pathname === '/' }, // Will need to activate 'bakery-quotas' tab
-    { to: '/', label: 'أدوات المخابز', icon: Wrench, isActive: location.pathname === '/' }, // Changed Tool to Wrench
+    { 
+      to: '/?tab=tasks', 
+      label: 'المهام', 
+      icon: ListTodo, 
+      isActive: location.pathname === '/' && currentTab === 'tasks' 
+    },
+    { 
+      to: '/reports', 
+      label: 'التقارير', 
+      icon: BarChart3, 
+      isActive: location.pathname === '/reports' 
+    },
+    { 
+      to: '/?tab=bakery-quotas', 
+      label: 'حصص المخابز', 
+      icon: Building, 
+      isActive: location.pathname === '/' && currentTab === 'bakery-quotas' 
+    },
+    { 
+      to: '/?tab=bakery-tools', 
+      label: 'أدوات المخابز', 
+      icon: Wrench, 
+      isActive: location.pathname === '/' && currentTab === 'bakery-tools' 
+    },
   ];
 
   const sidebarContent = (
@@ -68,7 +90,7 @@ export const Sidebar: React.FC = () => {
         <nav className="grid items-start px-2 text-sm font-medium lg:px-4 gap-1">
           {navigationItems.map((item) => (
             <NavLink
-              key={item.to + item.label} // Added label to key for uniqueness
+              key={item.to + item.label}
               to={item.to}
               icon={item.icon}
               label={item.label}

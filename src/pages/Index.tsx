@@ -25,9 +25,10 @@ import ReportsPage from "@/pages/Reports";
 import { useAuth } from '@/components/AuthManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import BakeryQuotasPageContent from './BakeryQuotas'; // Renamed import
+import BakeryQuotasPageContent from './BakeryQuotas';
 import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
 import { ExportBakeryQuotas } from '@/components/ExportBakeryQuotas';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
@@ -44,7 +45,32 @@ const Index = () => {
   const [sortBy, setSortBy] = useState<'created_at' | 'reminder_at' | 'task_number'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [notifiedOverdueTasks, setNotifiedOverdueTasks] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState('tasks'); // State to manage active tab
+  
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Initialize activeTab from URL search params, default to 'tasks'
+  const initialTab = searchParams.get('tab') || 'tasks';
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Effect to update URL when activeTab changes
+  useEffect(() => {
+    if (activeTab === 'tasks') {
+      searchParams.delete('tab');
+    } else {
+      searchParams.set('tab', activeTab);
+    }
+    setSearchParams(searchParams, { replace: true }); // Use replace to avoid adding to history
+  }, [activeTab, searchParams, setSearchParams]);
+
+  // Effect to update activeTab when URL changes (e.g., from sidebar navigation)
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') || 'tasks';
+    if (tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams, activeTab]);
+
 
   const { session } = useAuth();
 
@@ -310,12 +336,12 @@ const Index = () => {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="tasks" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Increased grid-cols */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-4">
           <TabsTrigger value="tasks">المهام</TabsTrigger>
           <TabsTrigger value="reports">التقارير</TabsTrigger>
-          <TabsTrigger value="bakery-quotas">حصص المخابز</TabsTrigger> {/* New Tab */}
-          <TabsTrigger value="bakery-tools">أدوات المخابز</TabsTrigger> {/* New Tab for Import/Export */}
+          <TabsTrigger value="bakery-quotas">حصص المخابز</TabsTrigger>
+          <TabsTrigger value="bakery-tools">أدوات المخابز</TabsTrigger>
         </TabsList>
         <TabsContent value="tasks" className="space-y-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -432,10 +458,10 @@ const Index = () => {
         <TabsContent value="reports">
           <ReportsPage />
         </TabsContent>
-        <TabsContent value="bakery-quotas"> {/* New Tab Content */}
+        <TabsContent value="bakery-quotas">
           <BakeryQuotasPageContent />
         </TabsContent>
-        <TabsContent value="bakery-tools" className="space-y-6"> {/* New Tab Content for tools */}
+        <TabsContent value="bakery-tools" className="space-y-6">
           <ImportBakeryQuotas />
           <ExportBakeryQuotas />
         </TabsContent>
