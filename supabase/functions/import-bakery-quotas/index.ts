@@ -150,7 +150,8 @@ serve(async (req) => {
     const existingQuotaMap = new Map<string, { id: string; quota_value: number; quota_date: string }>();
     existingQuotas?.forEach(q => existingQuotaMap.set(q.client_id, { id: q.id, quota_value: q.quota_value, quota_date: q.quota_date }));
 
-    const quotasToUpsert: any[] = [];
+    const quotasForInsert: any[] = [];
+    const quotasForUpdate: any[] = [];
     const historyToInsert: any[] = [];
     let createdCount = 0;
     let updatedCount = 0;
@@ -159,16 +160,21 @@ serve(async (req) => {
       const existingQuota = existingQuotaMap.get(record.client_id);
       const currentTimestamp = new Date().toISOString();
 
+      const baseQuota = {
+        client_id: record.client_id,
+        client_name: record.client_name,
+        quota_value: record.quota_value,
+        quota_date: record.quota_date,
+        notes: record.notes,
+        discount_type: record.discount_type,
+        updated_at: currentTimestamp,
+      };
+
       if (existingQuota) {
-        quotasToUpsert.push({ 
-          id: existingQuota.id,
-          client_id: record.client_id,
-          client_name: record.client_name,
-          quota_value: record.quota_value,
-          quota_date: record.quota_date,
-          notes: record.notes,
-          discount_type: record.discount_type,
-          updated_at: currentTimestamp,
+        // This is an update
+        quotasForUpdate.push({ 
+          ...baseQuota,
+          id: existingQuota.id, // ID is required for update
         });
         updatedCount++;
 
@@ -185,20 +191,16 @@ serve(async (req) => {
           });
         }
       } else {
-        quotasToUpsert.push({
-          client_id: record.client_id,
-          client_name: record.client_name,
-          quota_value: record.quota_value,
-          quota_date: record.quota_date,
-          notes: record.notes,
-          discount_type: record.discount_type,
-          created_at: currentTimestamp,
-          updated_at: currentTimestamp,
+        // This is an insert
+        quotasForInsert.push({
+          ...baseQuota,
+          created_at: currentTimestamp, // Add created_at for new records
         });
         createdCount++;
+        // For new inserts, we don't have the quota_id yet, so we'll link it later
         historyToInsert.push({
-          client_id: record.client_id,
-          quota_id: null,
+          client_id: record.client_id, // Temporarily store client_id to link after insert
+          quota_id: null, // Will be filled after insert
           user_id: userId,
           change_description: `تم إنشاء حصة تأمينية جديدة بقيمة ${record.quota_value} وتاريخ ${record.quota_date}.`,
           old_quota_value: null,
@@ -210,26 +212,47 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Edge Function: Performing upsert for ${quotasToUpsert.length} records (Created: ${createdCount}, Updated: ${updatedCount}).`);
+    // Perform inserts first
+    if (quotasForInsert.length > 0) {
+      console.log(`Edge Function: Performing insert for ${quotasForInsert.length} new records.`);
+      const { data: insertedQuotas, error: insertError } = await supabaseAdmin
+        .from('bakery_quotas')
+        .insert(quotasForInsert)
+        .select('id, client_id'); // Select id and client_id to link history
 
-    const { data: upsertedQuotas, error: upsertError } = await supabaseAdmin
-      .from('bakery_quotas')
-      .upsert(quotasToUpsert, { onConflict: 'client_id', ignoreDuplicates: false })
-      .select('id, client_id');
-
-    if (upsertError) {
-      console.error('Edge Function: Upsert operation failed:', upsertError);
-      throw new Error(`فشل في تحديث/إنشاء بيانات المخابز: ${upsertError.message}`);
-    }
-    console.log(`Edge Function: Upsert completed. ${upsertedQuotas?.length || 0} records affected.`);
-
-    upsertedQuotas?.forEach(upserted => {
-      const historyEntry = historyToInsert.find(h => h.client_id === upserted.client_id && h.quota_id === null);
-      if (historyEntry) {
-        historyEntry.quota_id = upserted.id;
-        delete historyEntry.client_id;
+      if (insertError) {
+        console.error('Edge Function: Insert operation failed:', insertError);
+        throw new Error(`فشل في إنشاء بيانات المخابز الجديدة: ${insertError.message}`);
       }
-    });
+      console.log(`Edge Function: Insert completed. ${insertedQuotas?.length || 0} records inserted.`);
+
+      // Link history entries to newly inserted quotas
+      insertedQuotas?.forEach(inserted => {
+        const historyEntry = historyToInsert.find(h => h.client_id === inserted.client_id && h.quota_id === null);
+        if (historyEntry) {
+          historyEntry.quota_id = inserted.id;
+          delete historyEntry.client_id; // Remove temporary client_id
+        }
+      });
+    }
+
+    // Then perform updates
+    if (quotasForUpdate.length > 0) {
+      console.log(`Edge Function: Performing update for ${quotasForUpdate.length} existing records.`);
+      const updatePromises = quotasForUpdate.map(async (quota) => {
+        const { id, ...updates } = quota; // Extract id for the .eq() clause
+        const { error: updateError } = await supabaseAdmin
+          .from('bakery_quotas')
+          .update(updates)
+          .eq('id', id);
+        if (updateError) {
+          console.error(`Edge Function: Failed to update quota ${id}:`, updateError);
+          excelErrors.push({ row: 0, message: `فشل تحديث المخبز ${quota.client_id}: ${updateError.message}` });
+        }
+      });
+      await Promise.all(updatePromises);
+      console.log(`Edge Function: Update completed for ${quotasForUpdate.length} records.`);
+    }
 
     const validHistoryEntries = historyToInsert.filter(entry => entry.quota_id !== null);
 
