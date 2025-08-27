@@ -40,9 +40,10 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Edge Function: User ${userId} authenticated.`);
 
-    // Receive the chunk data directly, as the client is already sending chunks
     const { data: chunkData, chunkSize = 100, chunkIndex = 0 } = await req.json();
     console.log(`Edge Function: Processing chunk ${chunkIndex + 1} with ${chunkData.length} records.`);
+    console.log('Edge Function: Received chunk data sample (first 2 rows):', chunkData.slice(0, 2));
+
 
     if (!chunkData || chunkData.length === 0) {
       return new Response(JSON.stringify({ error: 'No data found in the request body for this chunk' }), {
@@ -53,16 +54,16 @@ serve(async (req) => {
 
     const finalQuotaMap = new Map<string, any>();
     const excelErrors: { row: number; message: string }[] = [];
+    const clientIdsInChunk: string[] = [];
 
     for (let i = 0; i < chunkData.length; i++) {
       const row = chunkData[i];
-      // Calculate the actual row number in the full file for error reporting
       const globalRowIndex = (chunkIndex * chunkSize) + i + 1; 
 
       try {
         const client_id = row['كود المخبز']?.toString().trim();
         const client_name = row['اسم المخبز']?.toString().trim();
-        const new_quota_value = parseFloat(row['NEW_AVG_'] || '0');
+        const raw_new_quota_value = row['NEW_AVG_'];
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
         const discount_type = row['discount_type']?.toString().trim() || null;
 
@@ -71,18 +72,33 @@ serve(async (req) => {
           continue;
         }
 
+        let new_quota_value: number;
+        if (raw_new_quota_value === undefined || raw_new_quota_value === null || isNaN(parseFloat(raw_new_quota_value))) {
+          new_quota_value = 0; // Default to 0 if not a valid number
+          excelErrors.push({ row: globalRowIndex, message: `قيمة الحصة (NEW_AVG_) غير صالحة، تم تعيينها إلى 0.` });
+        } else {
+          new_quota_value = parseFloat(raw_new_quota_value);
+        }
+
         let quota_date: string;
         if (raw_quota_date) {
           if (typeof raw_quota_date === 'number') {
             const excelEpoch = new Date(Date.UTC(1899, 11, 30));
             const date = new Date(excelEpoch.getTime() + raw_quota_date * 24 * 60 * 60 * 1000);
-            quota_date = date.toISOString().split('T')[0];
+            quota_date = isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
+            if (isNaN(date.getTime())) {
+              excelErrors.push({ row: globalRowIndex, message: `تاريخ الحصة (TRUNC_A_OPE_DATE_) غير صالح، تم تعيينه إلى تاريخ اليوم.` });
+            }
           } else {
             const parsedDate = new Date(raw_quota_date);
             quota_date = isNaN(parsedDate.getTime()) ? new Date().toISOString().split('T')[0] : parsedDate.toISOString().split('T')[0];
+            if (isNaN(parsedDate.getTime())) {
+              excelErrors.push({ row: globalRowIndex, message: `تاريخ الحصة (TRUNC_A_OPE_DATE_) غير صالح، تم تعيينه إلى تاريخ اليوم.` });
+            }
           }
         } else {
           quota_date = new Date().toISOString().split('T')[0];
+          excelErrors.push({ row: globalRowIndex, message: `تاريخ الحصة (TRUNC_A_OPE_DATE_) مفقود، تم تعيينه إلى تاريخ اليوم.` });
         }
 
         finalQuotaMap.set(client_id, {
@@ -94,7 +110,10 @@ serve(async (req) => {
           discount_type,
           updated_at: new Date().toISOString(),
         });
+        clientIdsInChunk.push(client_id);
+
       } catch (error: any) {
+        console.error(`Edge Function: Error processing row ${globalRowIndex}:`, error);
         excelErrors.push({ row: globalRowIndex, message: `خطأ في معالجة الصف: ${error.message || 'خطأ غير معروف'}` });
       }
     }
@@ -109,14 +128,14 @@ serve(async (req) => {
       });
     }
 
-    // Fetch existing data for the clients in this chunk
-    const clientIdsInChunk = Array.from(finalQuotaMap.keys());
+    // Fetch existing data ONLY for the clients in this chunk
     const { data: existingQuotas, error: fetchError } = await supabaseAdmin
       .from('bakery_quotas')
-      .select('id, client_id, quota_value, quota_date'); // Select 'id' to link history
+      .select('id, client_id, quota_value, quota_date')
+      .in('client_id', clientIdsInChunk);
 
     if (fetchError) {
-      console.error('Edge Function: Error fetching existing quotas:', fetchError);
+      console.error('Edge Function: Error fetching existing quotas for chunk:', fetchError);
       throw new Error(`فشل في جلب البيانات الحالية: ${fetchError.message}`);
     }
 
@@ -232,7 +251,6 @@ serve(async (req) => {
       }
     }
 
-    // Simplified response for the client to aggregate
     return new Response(JSON.stringify({
       success: true,
       created: createdCount,
@@ -244,7 +262,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error('Edge Function: Error in import-bakery-quotas edge function:', error);
+    console.error('Edge Function: Uncaught error in import-bakery-quotas edge function:', error);
     return new Response(JSON.stringify({ error: error.message || 'حدث خطأ غير متوقع أثناء الاستيراد.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
