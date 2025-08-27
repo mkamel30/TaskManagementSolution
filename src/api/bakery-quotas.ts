@@ -10,6 +10,7 @@ export type BakeryQuota = {
   discount_type?: string;
   created_at: string;
   updated_at: string;
+  operation_date?: string; // Added operation_date
 };
 
 export type BakeryQuotaHistoryEntry = {
@@ -22,13 +23,11 @@ export type BakeryQuotaHistoryEntry = {
   changed_at: string;
   user_email?: string;
   notes?: string;
+  trunc_a_ope_date_?: string; // Added for history tracking
 };
 
 export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
-  const { data, error } = await supabase
-    .from('bakery_quotas')
-    .select('*')
-    .order('quota_date', { ascending: false }); // Removed .limit(null) for debugging
+  const { data, error } = await supabase.rpc('get_bakery_quotas_with_operation_date');
 
   if (error) {
     console.error('Error fetching bakery quotas:', error);
@@ -68,7 +67,7 @@ export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuot
   return data || [];
 };
 
-export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>) => {
+export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at' | 'operation_date'>) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
@@ -86,10 +85,11 @@ export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created
   const { error: historyError } = await supabase.from('bakery_quota_history').insert({
     quota_id: data.id,
     user_id: user.id,
-    change_description: 'تم إنشاء حصة تأمينية جديدة.',
+    change_description: `تم إنشاء حصة تأمينية جديدة بقيمة ${quota.quota_value} وتاريخ ${new Date(quota.quota_date).toLocaleDateString('ar-EG')}.`,
     new_quota_value: quota.quota_value,
     notes: quota.notes,
     changed_at: new Date().toISOString(),
+    trunc_a_ope_date_: quota.quota_date, // Store the quota_date as operation date in history
   });
 
   if (historyError) {
@@ -126,18 +126,29 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
     let description = 'تم تحديث تفاصيل الحصة التأمينية.';
-    if (updates.quota_value && updates.quota_value !== existingQuotaData.quota_value) {
-      description = `تم تغيير القيمة من ${existingQuotaData.quota_value} إلى ${updates.quota_value}.`;
+    let oldQuotaValue = existingQuotaData.quota_value;
+    let newQuotaValue = updates.quota_value !== undefined ? updates.quota_value : existingQuotaData.quota_value;
+    let oldQuotaDate = existingQuotaData.quota_date;
+    let newQuotaDate = updates.quota_date !== undefined ? updates.quota_date : existingQuotaData.quota_date;
+
+    if (updates.quota_value !== undefined && updates.quota_value !== existingQuotaData.quota_value &&
+        updates.quota_date !== undefined && updates.quota_date !== existingQuotaData.quota_date) {
+      description = `تم تغيير القيمة من ${oldQuotaValue} إلى ${newQuotaValue} والتاريخ من ${new Date(oldQuotaDate).toLocaleDateString('ar-EG')} إلى ${new Date(newQuotaDate).toLocaleDateString('ar-EG')}.`;
+    } else if (updates.quota_value !== undefined && updates.quota_value !== existingQuotaData.quota_value) {
+      description = `تم تغيير القيمة من ${oldQuotaValue} إلى ${newQuotaValue}.`;
+    } else if (updates.quota_date !== undefined && updates.quota_date !== existingQuotaData.quota_date) {
+      description = `تم تغيير التاريخ من ${new Date(oldQuotaDate).toLocaleDateString('ar-EG')} إلى ${new Date(newQuotaDate).toLocaleDateString('ar-EG')}.`;
     }
     
     const { error: historyError } = await supabase.from('bakery_quota_history').insert({
       quota_id: id,
       user_id: user.id,
       change_description: description,
-      old_quota_value: existingQuotaData.quota_value,
-      new_quota_value: updates.quota_value,
+      old_quota_value: oldQuotaValue,
+      new_quota_value: newQuotaValue,
       notes: updates.notes || existingQuotaData.notes,
       changed_at: new Date().toISOString(),
+      trunc_a_ope_date_: newQuotaDate, // Store the new quota_date as operation date in history
     });
 
     if (historyError) {
@@ -154,11 +165,16 @@ export const deleteBakeryQuota = async (id: string) => {
   if (history.length > 1) {
     const secondLastEntry = history[1];
     const previousQuotaValue = secondLastEntry.new_quota_value;
+    const previousQuotaDate = secondLastEntry.trunc_a_ope_date_; // Get previous date from history
 
-    if (previousQuotaValue !== undefined && previousQuotaValue !== null) {
+    if (previousQuotaValue !== undefined && previousQuotaValue !== null && previousQuotaDate) {
       const { error: updateError } = await supabase
         .from('bakery_quotas')
-        .update({ quota_value: previousQuotaValue, updated_at: new Date().toISOString() })
+        .update({ 
+          quota_value: previousQuotaValue, 
+          quota_date: previousQuotaDate, // Revert date as well
+          updated_at: new Date().toISOString() 
+        })
         .eq('id', id);
 
       if (updateError) {
@@ -175,7 +191,7 @@ export const deleteBakeryQuota = async (id: string) => {
         console.error('Error deleting most recent history entry:', deleteHistoryError);
       }
     } else {
-      console.warn('Previous quota value not found in history, performing full delete.');
+      console.warn('Previous quota value or date not found in history, performing full delete.');
       const { error } = await supabase
         .from('bakery_quotas')
         .delete()
