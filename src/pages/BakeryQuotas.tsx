@@ -67,8 +67,9 @@ const BakeryQuotasPageContent = () => {
 
   const updateMutation = useMutation({
     mutationFn: (variables: { id: string, updates: Partial<BakeryQuotaFormData> }) => updateBakeryQuota(variables.id, variables.updates),
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistory', variables.id] }); // Invalidate history for the specific quota
       showSuccess('تم تحديث الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
       setEditingQuota(null);
