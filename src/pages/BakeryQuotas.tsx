@@ -23,6 +23,7 @@ import { BakeryQuotaTable } from '@/components/BakeryQuotaTable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Pagination } from '@/components/Pagination';
 import { BakeryQuotaStats } from '@/components/BakeryQuotaStats'; // Import the new component
+import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
@@ -30,21 +31,25 @@ const BakeryQuotasPageContent = () => {
   const queryClient = useQueryClient();
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingQuota, setEditingQuota] = useState<BakeryQuota | null>(null);
-  const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuotaFormData | null>(null); // Fixed type here
+  const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuotaFormData | null>(null);
   const [searchQuery, setSearchQuery] = useState(''); // For input field
   const [submittedSearchQuery, setSubmittedSearchQuery] = useState(''); // For actual query to API
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('quota_date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // New state for date filtering
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const { data: paginatedResponse, isLoading, isError } = useQuery({
-    queryKey: ['bakeryQuotas', currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder],
-    queryFn: () => getPaginatedBakeryQuotas(currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder),
+    queryKey: ['bakeryQuotas', currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder, startDate, endDate],
+    queryFn: () => getPaginatedBakeryQuotas(currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder, startDate, endDate),
   });
 
   const bakeries = paginatedResponse?.data || [];
@@ -183,10 +188,10 @@ const BakeryQuotasPageContent = () => {
     }
   };
 
-  // Reset page to 1 when sort or items per page changes (but not search, as that's handled by handleSearchButtonClick)
+  // Reset page to 1 when sort, items per page, or date filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [sortBy, sortOrder, itemsPerPage]);
+  }, [sortBy, sortOrder, itemsPerPage, startDate, endDate]);
 
   const formInitialData = editingQuota || addingRecordForQuota || undefined;
   const dialogTitle = editingQuota 
@@ -225,10 +230,10 @@ const BakeryQuotasPageContent = () => {
         <CardHeader className="p-0 mb-4">
           <CardTitle className="text-right flex items-center gap-2">
             <Search className="h-5 w-5" />
-            <span>بحث عن مخبز</span>
+            <span>بحث وتصفية المخابز</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0 flex flex-col md:flex-row gap-4 items-center">
+        <CardContent className="p-0 flex flex-col gap-4">
           <div className="relative flex-grow w-full">
             <Input
               placeholder="بحث بالكود أو اسم المخبز أو نوع الخصم..."
@@ -238,14 +243,24 @@ const BakeryQuotasPageContent = () => {
               className="pr-4 text-right"
             />
           </div>
-          <Button onClick={handleSearchButtonClick} className="w-full md:w-auto shrink-0">
-            <Search className="h-4 w-4 ml-2" />
-            بحث
-          </Button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1 w-full">
+              <label className="text-sm font-medium text-right">تاريخ البدء (الحصة)</label>
+              <DatePicker date={startDate} setDate={setStartDate} />
+            </div>
+            <div className="flex flex-col gap-1 w-full">
+              <label className="text-sm font-medium text-right">تاريخ الانتهاء (الحصة)</label>
+              <DatePicker date={endDate} setDate={setEndDate} />
+            </div>
+            <Button onClick={handleSearchButtonClick} className="w-full md:w-auto self-end">
+              <Search className="h-4 w-4 ml-2" />
+              تطبيق البحث والتصفية
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {submittedSearchQuery ? (
+      {submittedSearchQuery || startDate || endDate ? (
         <>
           <Card>
             <CardHeader>
@@ -310,7 +325,7 @@ const BakeryQuotasPageContent = () => {
         </>
       ) : (
         <Card className="text-center py-16 text-gray-500 dark:text-gray-400">
-          <h3 className="text-lg font-semibold">يرجى إدخال مصطلح بحث لعرض بيانات المخابز.</h3>
+          <h3 className="text-lg font-semibold">يرجى إدخال مصطلح بحث أو تحديد نطاق تاريخ لعرض بيانات المخابز.</h3>
           <p className="text-sm">يمكنك البحث بكود العميل، اسم العميل، الملاحظات، أو نوع الخصم.</p>
         </Card>
       )}

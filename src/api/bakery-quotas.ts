@@ -43,7 +43,9 @@ export const getPaginatedBakeryQuotas = async (
   itemsPerPage: number,
   searchQuery: string,
   sortBy: string,
-  sortOrder: string
+  sortOrder: string,
+  startDate?: Date, // New parameter
+  endDate?: Date    // New parameter
 ): Promise<PaginatedBakeryQuotasResponse> => {
   const { data, error } = await supabase.rpc('get_paginated_bakery_quotas', {
     page,
@@ -51,6 +53,8 @@ export const getPaginatedBakeryQuotas = async (
     search_query: searchQuery,
     sort_by: sortBy,
     sort_order: sortOrder,
+    start_date: startDate?.toISOString().split('T')[0], // Format date for RPC
+    end_date: endDate?.toISOString().split('T')[0],     // Format date for RPC
   });
 
   if (error) {
@@ -333,7 +337,7 @@ export const getBakeryQuotaEditStatsMonth = async (): Promise<number> => {
   return data?.[0]?.total_edits || 0;
 };
 
-export const getBakeryQuotaEditStatsPerClientToday = async (): Promise<{ client_name: string; edit_count: number }[]> => {
+export const getBakeryQuotaEditStatsPerClientToday = async (): Promise<{ client_id: string; edit_count: number }[]> => {
   const { data, error } = await supabase.rpc('get_bakery_quota_edit_stats_per_client_today');
   if (error) {
     console.error('Error fetching today\'s bakery quota edits per client:', error);
