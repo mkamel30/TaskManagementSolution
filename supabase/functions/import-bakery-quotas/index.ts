@@ -40,7 +40,7 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Edge Function: User ${userId} authenticated.`);
 
-    const { data: chunkData, chunkSize = 20, chunkIndex = 0 } = await req.json(); // Use the reduced chunk size
+    const { data: chunkData, chunkSize = 20, chunkIndex = 0 } = await req.json();
     console.log(`Edge Function: Processing chunk ${chunkIndex + 1} with ${chunkData.length} records.`);
     console.log('Edge Function: Received chunk data sample (first 2 rows):', chunkData.slice(0, 2));
 
@@ -52,8 +52,7 @@ serve(async (req) => {
       });
     }
 
-    const processedRecords: any[] = [];
-    const clientIdsInChunk: string[] = [];
+    const processedRecordsMap = new Map<string, any>(); // Map to store the latest record for each client_id
     const excelErrors: { row: number; message: string }[] = [];
 
     for (let i = 0; i < chunkData.length; i++) {
@@ -102,7 +101,8 @@ serve(async (req) => {
           excelErrors.push({ row: globalRowIndex, message: `تاريخ الحصة (TRUNC_A_OPE_DATE_) مفقود، تم تعيينه إلى تاريخ اليوم.` });
         }
 
-        processedRecords.push({
+        // Store the latest record for each client_id in the map
+        processedRecordsMap.set(client_id, {
           client_id,
           client_name,
           quota_value,
@@ -112,7 +112,6 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
           original_row_index: globalRowIndex,
         });
-        clientIdsInChunk.push(client_id);
 
       } catch (error: any) {
         console.error(`Edge Function: Error processing row ${globalRowIndex}:`, error);
@@ -120,10 +119,13 @@ serve(async (req) => {
       }
     }
 
+    const processedRecords = Array.from(processedRecordsMap.values()); // Get unique records
+    const clientIdsInChunk = Array.from(processedRecordsMap.keys());
+
     if (processedRecords.length === 0) {
-      console.warn('Edge Function: No valid records could be parsed from this chunk.');
+      console.warn('Edge Function: No valid records could be parsed from this chunk after deduplication.');
       return new Response(JSON.stringify({ 
-        success: true, // Return success even if no records, but with errors
+        success: true,
         created: 0,
         updated: 0,
         errors: excelErrors 
@@ -133,7 +135,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Edge Function: Fetching existing quotas for ${clientIdsInChunk.length} client IDs.`);
+    console.log(`Edge Function: Fetching existing quotas for ${clientIdsInChunk.length} unique client IDs.`);
     const { data: existingQuotas, error: fetchError } = await supabaseAdmin
       .from('bakery_quotas')
       .select('id, client_id, quota_value, quota_date')
