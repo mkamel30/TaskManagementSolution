@@ -124,19 +124,71 @@ export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created
 };
 
 export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota>): Promise<BakeryQuota> => {
-  const { data, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated");
+
+  // Fetch existing quota to compare values
+  const { data: existingQuota, error: fetchError } = await supabase
+    .from('bakery_quotas')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !existingQuota) {
+    console.error('Error fetching existing bakery quota:', fetchError);
+    throw fetchError || new Error('Bakery quota not found');
+  }
+
+  // Perform the update
+  const { data: updatedQuota, error: updateError } = await supabase
     .from('bakery_quotas')
     .update(updates)
     .eq('id', id)
     .select()
     .single();
 
-  if (error) {
-    console.error('Error updating bakery quota:', error);
-    throw error;
+  if (updateError) {
+    console.error('Error updating bakery quota:', updateError);
+    throw updateError;
   }
 
-  return data as BakeryQuota;
+  // Log history if relevant fields have changed
+  const changes: string[] = [];
+  let oldQuotaValue: number | undefined;
+  let newQuotaValue: number | undefined;
+
+  if (updates.quota_value !== undefined && updates.quota_value !== existingQuota.quota_value) {
+    changes.push(`قيمة الحصة من ${existingQuota.quota_value} إلى ${updates.quota_value}`);
+    oldQuotaValue = existingQuota.quota_value;
+    newQuotaValue = updates.quota_value;
+  }
+  if (updates.notes !== undefined && updates.notes !== existingQuota.notes) {
+    changes.push(`الملاحظات من "${existingQuota.notes || 'فارغ'}" إلى "${updates.notes || 'فارغ'}"`);
+  }
+  if (updates.discount_type !== undefined && updates.discount_type !== existingQuota.discount_type) {
+    changes.push(`نوع الخصم من "${existingQuota.discount_type || 'فارغ'}" إلى "${updates.discount_type || 'فارغ'}"`);
+  }
+
+  if (changes.length > 0) {
+    const changeDescription = `تم تحديث: ${changes.join(', ')}.`;
+    
+    const { error: historyError } = await supabase.from('bakery_quota_history').insert({
+      quota_id: id,
+      user_id: user.id,
+      change_description: changeDescription,
+      old_quota_value: oldQuotaValue,
+      new_quota_value: newQuotaValue,
+      changed_at: new Date().toISOString(),
+      trunc_a_ope_date_: updates.quota_date || existingQuota.quota_date, // Use updated date if available, else existing
+      notes: updates.notes || existingQuota.notes, // Use updated notes if available, else existing
+    });
+
+    if (historyError) {
+      console.error('Error creating bakery quota history:', historyError);
+    }
+  }
+
+  return updatedQuota as BakeryQuota;
 };
 
 export const deleteBakeryQuota = async (id: string): Promise<void> => {
