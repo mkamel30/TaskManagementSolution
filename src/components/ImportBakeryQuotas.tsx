@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from './ui/label';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, Eye, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, X, Loader2, BarChart3 } from 'lucide-react';
 import { importBakeryQuotasFromExcel } from '@/api/bakery-quotas';
 import * as XLSX from 'xlsx';
 
@@ -19,17 +19,18 @@ type ImportResult = {
 export const ImportBakeryQuotas: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [previewData, setPreviewData] = useState<any[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [progress, setProgress] = useState(0);
-  const [fullExcelData, setFullExcelData] = useState<any[]>([]); // Store the complete data here
+  const [fileInfo, setFileInfo] = useState<{
+    totalRows: number;
+    uniqueBakeryCodes: number;
+    bakeryCodes: string[];
+  } | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
-      setShowPreview(false);
       setImportResult(null);
       setProgress(0);
       parseExcelFile(selectedFile);
@@ -51,10 +52,20 @@ export const ImportBakeryQuotas: React.FC = () => {
           return;
         }
 
-        // Store the complete data
-        setFullExcelData(jsonData);
-        // Set preview data to first 5 rows only
-        setPreviewData(jsonData.slice(0, 5));
+        // Extract unique bakery codes
+        const bakeryCodes = new Set<string>();
+        jsonData.forEach((row: any) => {
+          const code = row['BAKERY_CODE']?.toString().trim();
+          if (code) {
+            bakeryCodes.add(code);
+          }
+        });
+
+        setFileInfo({
+          totalRows: jsonData.length,
+          uniqueBakeryCodes: bakeryCodes.size,
+          bakeryCodes: Array.from(bakeryCodes),
+        });
       } catch (parseError: any) {
         console.error('Error parsing Excel file:', parseError);
         toast.error(`خطأ في قراءة ملف Excel: ${parseError.message}`);
@@ -64,7 +75,7 @@ export const ImportBakeryQuotas: React.FC = () => {
   };
 
   const handleImport = async () => {
-    if (!file || fullExcelData.length === 0) {
+    if (!file || !fileInfo) {
       toast.error('يرجى اختيار ملف Excel أولاً');
       return;
     }
@@ -74,37 +85,54 @@ export const ImportBakeryQuotas: React.FC = () => {
     const loadingToast = toast.loading('جاري معالجة الملف...');
 
     try {
-      // Use the fullExcelData instead of previewData for the actual import
-      const result = await importBakeryQuotasFromExcel(fullExcelData, (progress) => {
-        setProgress(progress);
-      });
-      
-      setImportResult(result);
-      
-      if (result.errors.length > 0) {
-        toast.warning(`تمت معالجة الملف بنجاح، ولكن حدثت أخطاء في ${result.errors.length} صف(وف).`);
-      } else {
-        toast.success(`تم استيراد/تحديث ${result.processed} سجل بنجاح!`);
-      }
-      
-      setFile(null);
-      setShowPreview(false);
-      const fileInput = document.getElementById('file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      // We need to re-read the file to get the complete data
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const buffer = e.target?.result as ArrayBuffer;
+          const workbook = XLSX.read(buffer);
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const fullData = worksheet ? (worksheet['!ref'] ? XLSX.utils.sheet_to_json(worksheet) : []) : [];
+
+          if (fullData.length === 0) {
+            toast.error('لا توجد بيانات في ملف Excel المحدد.');
+            setIsUploading(false);
+            dismissToast(loadingToast);
+            return;
+          }
+
+          const result = await importBakeryQuotasFromExcel(fullData, (progress) => {
+            setProgress(progress);
+          });
+          
+          setImportResult(result);
+          
+          if (result.errors.length > 0) {
+            toast.warning(`تمت معالجة الملف بنجاح، ولكن حدثت أخطاء في ${result.errors.length} صف(وف).`);
+          } else {
+            toast.success(`تم استيراد/تحديث ${result.processed} سجل بنجاح!`);
+          }
+        } catch (error: any) {
+          console.error('Import error:', error);
+          toast.error(`حدث خطأ أثناء الاستيراد: ${error.message}`);
+        } finally {
+          setIsUploading(false);
+          dismissToast(loadingToast);
+        }
+      };
+      reader.readAsArrayBuffer(file);
     } catch (error: any) {
       console.error('Import error:', error);
       toast.error(`حدث خطأ أثناء الاستيراد: ${error.message}`);
-    } finally {
-      dismissToast(loadingToast);
       setIsUploading(false);
+      dismissToast(loadingToast);
     }
   };
 
   const resetImport = () => {
     setFile(null);
-    setPreviewData([]);
-    setFullExcelData([]); // Also reset the full data
-    setShowPreview(false);
+    setFileInfo(null);
     setImportResult(null);
     setProgress(0);
     const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -154,63 +182,43 @@ export const ImportBakeryQuotas: React.FC = () => {
           </div>
         )}
 
-        {file && !showPreview && !importResult && (
+        {file && !importResult && (
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground text-right w-full">
               الملف المختار: {file.name}
             </div>
+            
+            {fileInfo && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                <div className="flex items-center gap-3">
+                  <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">إجمالي الصفوف</p>
+                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fileInfo.totalRows.toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <FileSpreadsheet className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">عدد المخابز الفريدة</p>
+                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fileInfo.uniqueBakeryCodes.toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
-              <Button onClick={() => setShowPreview(true)} className="flex items-center gap-2">
-                <Eye size={16} />
-                معاينة البيانات
+              <Button 
+                onClick={handleImport} 
+                disabled={isUploading || !fileInfo} 
+                className="flex items-center gap-2"
+              >
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload size={16} />}
+                {isUploading ? 'جاري الاستيراد...' : 'استيراد البيانات'}
               </Button>
               <Button variant="outline" onClick={resetImport}>
                 <X size={16} />
                 إلغاء
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {showPreview && previewData.length > 0 && (
-          <div className="space-y-4">
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-              <p className="text-sm text-blue-800 dark:text-blue-200 text-right">
-                تم العثور على <span className="font-bold">{fullExcelData.length}</span> صف في الملف المعاينة. سيتم استيراد جميع الصفوف.
-              </p>
-            </div>
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                  <tr>
-                    {Object.keys(previewData[0] || {}).map((key) => (
-                      <th key={key} className="px-4 py-2 text-right border-b">
-                        {key}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewData.map((row, index) => (
-                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                      {Object.values(row).map((value: any, i: number) => (
-                        <td key={i} className="px-4 py-2 border-b text-right">
-                          {value?.toString() || ''}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleImport} disabled={isUploading} className="flex items-center gap-2">
-                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload size={16} />}
-                {isUploading ? 'جاري الاستيراد...' : 'استيراد البيانات'}
-              </Button>
-              <Button variant="outline" onClick={() => setShowPreview(false)}>
-                <X size={16} />
-                إلغاء المعاينة
               </Button>
             </div>
           </div>
@@ -241,19 +249,19 @@ export const ImportBakeryQuotas: React.FC = () => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-2xl font-bold">{importResult.total}</p>
+                <p className="text-2xl font-bold">{importResult.total.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">إجمالي الصفوف</p>
               </div>
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{importResult.processed}</p>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{importResult.processed.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">المعالجة</p>
               </div>
               <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{importResult.created}</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{importResult.created.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">جديدة</p>
               </div>
               <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{importResult.updated}</p>
+                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{importResult.updated.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">محدثة</p>
               </div>
             </div>
