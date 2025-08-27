@@ -26,6 +26,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { Pagination } from '@/components/Pagination';
+import { ExportBakeryQuotas } from '@/components/ExportBakeryQuotas'; // Import the new component
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
@@ -37,12 +39,16 @@ const BakeryQuotasPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('quota_date'); // Default to quota_date
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // Default to descending
+  const [sortBy, setSortBy] = useState<'client_name' | 'quota_date' | 'client_id'>('quota_date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const { data: quotas, isLoading, isError } = useQuery<BakeryQuota[]>({
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const { data: allQuotas, isLoading, isError } = useQuery<BakeryQuota[]>({
     queryKey: ['bakeryQuotas'],
-    queryFn: getBakeryQuotas
+    queryFn: getBakeryQuotas,
   });
 
   const { data: historyCounts } = useQuery({
@@ -59,7 +65,7 @@ const BakeryQuotasPage = () => {
       });
       return countMap;
     },
-    enabled: !!quotas,
+    enabled: !!allQuotas,
   });
 
   const createMutation = useMutation({
@@ -165,9 +171,9 @@ const BakeryQuotasPage = () => {
   };
 
   const filteredAndSortedBakeries = useMemo(() => {
-    if (!quotas) return [];
+    if (!allQuotas) return [];
     
-    let currentBakeries = quotas;
+    let currentBakeries = allQuotas;
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -193,7 +199,7 @@ const BakeryQuotasPage = () => {
     });
 
     return currentBakeries;
-  }, [quotas, searchQuery, sortBy, sortOrder]);
+  }, [allQuotas, searchQuery, sortBy, sortOrder]);
 
   const bakeriesWithHistoryCount = useMemo(() => {
     return filteredAndSortedBakeries.map(bakery => ({
@@ -202,7 +208,15 @@ const BakeryQuotasPage = () => {
     }));
   }, [filteredAndSortedBakeries, historyCounts]);
 
-  const totalBakeries = quotas?.length || 0;
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = bakeriesWithHistoryCount.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(bakeriesWithHistoryCount.length / itemsPerPage);
+
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  const totalBakeries = allQuotas?.length || 0;
 
   const formInitialData = editingQuota || addingRecordForQuota || undefined;
   const dialogTitle = editingQuota 
@@ -282,21 +296,33 @@ const BakeryQuotasPage = () => {
       </Card>
 
       <Tabs defaultValue="quotas" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="quotas">بيانات المخابز</TabsTrigger>
           <TabsTrigger value="import">استيراد من Excel</TabsTrigger>
+          <TabsTrigger value="export">تصدير إلى Excel</TabsTrigger>
         </TabsList>
         <TabsContent value="quotas" className="space-y-4">
           <BakeryQuotaTable
-            bakeries={bakeriesWithHistoryCount}
+            bakeries={currentItems} // Use paginated data
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onAddRecord={handleAddNewRecordForClient}
             searchQuery={searchQuery}
           />
+          {totalPages > 1 && (
+            <Pagination
+              totalItems={bakeriesWithHistoryCount.length}
+              itemsPerPage={itemsPerPage}
+              currentPage={currentPage}
+              onPageChange={paginate}
+            />
+          )}
         </TabsContent>
         <TabsContent value="import" className="space-y-4">
           <ImportBakeryQuotas />
+        </TabsContent>
+        <TabsContent value="export" className="space-y-4">
+          <ExportBakeryQuotas />
         </TabsContent>
       </Tabs>
 
