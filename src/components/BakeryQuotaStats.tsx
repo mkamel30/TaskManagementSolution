@@ -81,7 +81,7 @@ export const BakeryQuotaStats: React.FC = () => {
             <ul className="space-y-2">
               {perClientToday.map((entry, index) => (
                 <li key={index} className="flex justify-between items-center text-sm">
-                  <span>{entry.client_name}</span>
+                  <span>{entry.client_id}</span> {/* Changed to client_id */}
                   <span className="font-semibold">{entry.edit_count}</span>
                 </li>
               ))}
