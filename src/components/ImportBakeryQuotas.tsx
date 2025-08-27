@@ -59,11 +59,11 @@ export const ImportBakeryQuotas: React.FC = () => {
         const firstRow = jsonData[0] || {};
         const columns = Object.keys(firstRow);
 
-        // Extract unique bakery codes
+        // Extract unique bakery codes using multiple possible column names
         const bakeryCodes = new Set<string>();
         jsonData.forEach((row: any) => {
           // Try different possible column names for bakery code
-          const code = row['BAKERY_CODE'] || row['bakery_code'] || row['كود المخبز'] || row['CODE'] || row['code'];
+          const code = row['كود المخبز'] || row['BAKERY_CODE'] || row['bakery_code'] || row['كود'] || row['CODE'] || row['code'];
           if (code?.toString().trim()) {
             bakeryCodes.add(code.toString().trim());
           }
@@ -108,7 +108,6 @@ export const ImportBakeryQuotas: React.FC = () => {
           if (fullData.length === 0) {
             toast.error('لا توجد بيانات في ملف Excel المحدد.');
             setIsUploading(false);
-            dismissToast(loadingToast);
             return;
           }
 
@@ -128,7 +127,6 @@ export const ImportBakeryQuotas: React.FC = () => {
           toast.error(`حدث خطأ أثناء الاستيراد: ${error.message}`);
         } finally {
           setIsUploading(false);
-          dismissToast(loadingToast);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -136,7 +134,6 @@ export const ImportBakeryQuotas: React.FC = () => {
       console.error('Import error:', error);
       toast.error(`حدث خطأ أثناء الاستيراد: ${error.message}`);
       setIsUploading(false);
-      dismissToast(loadingToast);
     }
   };
 
