@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, ListTodo, BarChart3, LogOut, Building, Tool } from 'lucide-react'; // Added Tool icon
+import { Menu, ListTodo, BarChart3, LogOut, Building, Wrench } from 'lucide-react'; // Changed Tool to Wrench
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/components/AuthManager';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,7 +56,7 @@ export const Sidebar: React.FC = () => {
     { to: '/reports', label: 'التقارير', icon: BarChart3, isActive: location.pathname === '/reports' },
     // The following links will now navigate to the main page and rely on tabs to show the content
     { to: '/', label: 'حصص المخابز', icon: Building, isActive: location.pathname === '/' }, // Will need to activate 'bakery-quotas' tab
-    { to: '/', label: 'أدوات المخابز', icon: Tool, isActive: location.pathname === '/' }, // Will need to activate 'bakery-tools' tab
+    { to: '/', label: 'أدوات المخابز', icon: Wrench, isActive: location.pathname === '/' }, // Changed Tool to Wrench
   ];
 
   const sidebarContent = (

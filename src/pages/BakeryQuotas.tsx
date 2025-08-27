@@ -29,7 +29,7 @@ const BakeryQuotasPageContent = () => {
   const queryClient = useQueryClient();
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingQuota, setEditingQuota] = useState<BakeryQuota | null>(null);
-  const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuota | null>(null);
+  const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuotaFormData | null>(null); // Fixed type here
   const [searchQuery, setSearchQuery] = useState(''); // For input field
   const [submittedSearchQuery, setSubmittedSearchQuery] = useState(''); // For actual query to API
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);

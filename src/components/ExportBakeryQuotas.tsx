@@ -27,7 +27,7 @@ export const ExportBakeryQuotas: React.FC = () => {
 
         if (exportType === 'all') {
           const allQuotasResponse = await getPaginatedBakeryQuotas(1, Number.MAX_SAFE_INTEGER, '', 'quota_date', 'desc');
-          filteredQuotas = allQuotas.data;
+          filteredQuotas = allQuotasResponse.data; // Corrected variable name here
         } else if (exportType === 'dateRange') {
           if (!startDate || !endDate) {
             reject(new Error('يرجى تحديد تاريخ البدء وتاريخ الانتهاء'));
