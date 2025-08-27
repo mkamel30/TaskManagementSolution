@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-// Removed XLSX import as parsing is now client-side
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,29 +41,35 @@ serve(async (req) => {
     console.log(`Edge Function: User ${userId} authenticated.`);
 
     // Expecting JSON data directly from the client
-    const { data: excelDataChunk } = await req.json();
-    console.log(`Edge Function: Received chunk with ${excelDataChunk.length} rows.`);
+    const { data: excelData } = await req.json();
+    console.log(`Edge Function: Received ${excelData.length} rows to process.`);
 
-    if (!excelDataChunk || excelDataChunk.length === 0) {
-      console.warn('Edge Function: No data found in the request body chunk.');
+    if (!excelData || excelData.length === 0) {
+      console.warn('Edge Function: No data found in the request body.');
       return new Response(JSON.stringify({ error: 'No data found in the request body' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
     }
 
-    const latestQuotasMap = new Map<string, any>(); // To store only the latest entry for each client_id
+    const latestQuotasMap = new Map<string, any>();
     const historyToInsert: any[] = [];
-    const errors: string[] = [];
+    const errors: { row: number; message: string }[] = [];
+    let processedCount = 0;
+    let createdCount = 0;
+    let updatedCount = 0;
 
-    for (const row of excelDataChunk) { // Iterate over the received JSON data chunk
+    for (let i = 0; i < excelData.length; i++) {
+      const row = excelData[i];
+      const rowIndex = i + 1; // 1-based index for user feedback
+
       try {
         const client_id = row['BAKERY_CODE']?.toString().trim();
         const client_name = row['BAKERY_NAME']?.toString().trim();
         const old_quota_value = parseFloat(row['OLD_AVG_']?.toString() || '0');
         const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
-        const discount_type = row['discount_type']?.toString().trim() || null; // Matches 'discount_type' header
+        const discount_type = row['discount_type']?.toString().trim() || null;
 
         let quota_date: string;
         if (raw_quota_date) {
@@ -84,67 +89,70 @@ serve(async (req) => {
           quota_date = new Date().toISOString().split('T')[0];
         }
 
-        // Set notes to null as there is no 'NOTES' column in the provided Excel headers
-        const notes = null; 
+        const notes = null;
 
         if (!client_id || !client_name) {
-          errors.push(`Skipping row with missing client_id or client_name: ${JSON.stringify(row)}`);
+          errors.push({ row: rowIndex, message: 'كود العميل أو اسم العميل مفقود' });
           continue;
         }
 
-        // Store the latest quota for this client_id in the map
+        // Check if this is an update or a new entry
+        const existingQuota = latestQuotasMap.get(client_id);
+        if (existingQuota) {
+          updatedCount++;
+        } else {
+          createdCount++;
+        }
+
         latestQuotasMap.set(client_id, {
           client_id: client_id,
           client_name: client_name,
           quota_value: new_quota_value,
           quota_date: quota_date,
-          notes: notes, // Set to null
+          notes: notes,
           discount_type: discount_type,
-          updated_at: new Date().toISOString(), // Ensure updated_at is set
+          updated_at: new Date().toISOString(),
         });
 
-        // Store history data for every change, will link quota_id after upsert
         historyToInsert.push({
-          client_id: client_id, // Use client_id temporarily to link later
+          client_id: client_id,
           user_id: userId,
           change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
           old_quota_value: old_quota_value,
           new_quota_value: new_quota_value,
-          changed_at: quota_date, // Use quota_date for changed_at
-          notes: notes, // Set to null
-          trunc_a_ope_date_: quota_date, // Also set this column
+          changed_at: quota_date,
+          notes: notes,
+          trunc_a_ope_date_: quota_date,
         });
+        
+        processedCount++;
 
       } catch (error: any) {
-        console.error('Edge Function: Error processing row for batch:', error);
-        errors.push(`Error preparing row ${JSON.stringify(row)}: ${error.message || error}`);
+        console.error(`Edge Function: Error processing row ${rowIndex}:`, error);
+        errors.push({ row: rowIndex, message: `خطأ في معالجة الصف: ${error.message || 'خطأ غير معروف'}` });
       }
     }
 
-    const quotasToUpsert = Array.from(latestQuotasMap.values()); // Convert map values to array for upsert
-    console.log(`Edge Function: Prepared ${quotasToUpsert.length} unique quotas for upsert and ${historyToInsert.length} history entries.`);
-    console.log('Edge Function: Quotas to upsert payload:', JSON.stringify(quotasToUpsert)); // Log the actual payload
+    const quotasToUpsert = Array.from(latestQuotasMap.values());
+    console.log(`Edge Function: Prepared ${quotasToUpsert.length} unique quotas for upsert.`);
 
-    // Perform batch upsert for bakery_quotas
     const { data: upsertedBakeries, error: upsertError } = await supabaseAdmin
       .from('bakery_quotas')
       .upsert(quotasToUpsert, { onConflict: 'client_id' })
-      .select('id, client_id, quota_value'); // Select id and the new quota_value
+      .select('id, client_id, quota_value');
 
     if (upsertError) {
       console.error('Edge Function: Batch upsert error:', upsertError);
-      throw new Error(`Failed to upsert bakery quotas: ${upsertError.message}`);
+      throw new Error(`فشل تحديث بيانات المخابز: ${upsertError.message}`);
     }
-    console.log(`Edge Function: Successfully upserted ${upsertedBakeries.length} bakery quotas.`);
 
     const bakeryIdMap = new Map<string, { id: string, new_quota_value: number }>();
     upsertedBakeries.forEach(b => bakeryIdMap.set(b.client_id, { id: b.id, new_quota_value: b.quota_value }));
 
-    // Now, link quota_id to history entries and perform batch insert
     const finalHistoryEntries = historyToInsert.map(entry => {
       const bakeryInfo = bakeryIdMap.get(entry.client_id);
       if (!bakeryInfo) {
-        errors.push(`Could not find bakery ID for client_id: ${entry.client_id} during history creation.`);
+        errors.push({ row: 0, message: `لم يتم العثور على معرف مخبز لـ client_id: ${entry.client_id} أثناء إنشاء السجل التاريخي.` });
         return null;
       }
       return {
@@ -157,7 +165,7 @@ serve(async (req) => {
         notes: entry.notes,
         trunc_a_ope_date_: entry.trunc_a_ope_date_,
       };
-    }).filter(Boolean); // Remove any null entries if ID mapping failed
+    }).filter(Boolean);
 
     if (finalHistoryEntries.length > 0) {
       const { error: historyInsertError } = await supabaseAdmin
@@ -166,16 +174,15 @@ serve(async (req) => {
 
       if (historyInsertError) {
         console.error('Edge Function: Batch history insert error:', historyInsertError);
-        throw new Error(`Failed to insert bakery quota history: ${historyInsertError.message}`);
+        throw new Error(`فشل في إدخال السجلات التاريخية: ${historyInsertError.message}`);
       }
-      console.log(`Edge Function: Successfully inserted ${finalHistoryEntries.length} history entries.`);
-    } else {
-      console.log('Edge Function: No history entries to insert for this chunk.');
     }
 
     return new Response(JSON.stringify({
-      total: excelDataChunk.length,
-      processed: finalHistoryEntries.length, // Number of history entries successfully inserted
+      total: excelData.length,
+      processed: processedCount,
+      created: createdCount,
+      updated: updatedCount,
       errors: errors,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -184,7 +191,7 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Edge Function: Error in import-bakery-quotas edge function:', error);
-    return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred during import.' }), {
+    return new Response(JSON.stringify({ error: error.message || 'حدث خطأ غير متوقع أثناء الاستيراد.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
