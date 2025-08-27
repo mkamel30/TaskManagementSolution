@@ -135,7 +135,7 @@ serve(async (req) => {
         if (existingQuota.quota_value !== finalQuota.quota_value || existingQuota.quota_date !== finalQuota.quota_date) {
           quotasToUpdate.push(finalQuota);
           historyToInsert.push({
-            quota_id: '', // Will be filled after update
+            quota_id: null, // Will be set after successful update
             user_id: userId,
             change_description: `تم تغيير الحصة من ${existingQuota.quota_value} إلى ${finalQuota.quota_value}`,
             old_quota_value: existingQuota.quota_value,
@@ -148,7 +148,7 @@ serve(async (req) => {
       } else {
         quotasToCreate.push(finalQuota);
         historyToInsert.push({
-          quota_id: '', // Will be filled after creation
+          quota_id: null, // Will be set after successful creation
           user_id: userId,
           change_description: `تم إنشاء حصة تأمينية جديدة بقيمة ${finalQuota.quota_value}`,
           old_quota_value: null,
@@ -169,7 +169,7 @@ serve(async (req) => {
 
     // Process creations in batches
     if (quotasToCreate.length > 0) {
-      const batchSize = 20; // Smaller batch size for creations
+      const batchSize = 20;
       for (let i = 0; i < quotasToCreate.length; i += batchSize) {
         const batch = quotasToCreate.slice(i, i + batchSize);
         const { data: createdQuotas, error: createError } = await supabaseAdmin
@@ -186,7 +186,7 @@ serve(async (req) => {
           createdCount += createdQuotas?.length || 0;
           // Map created IDs for history
           createdQuotas?.forEach(created => {
-            const historyEntry = historyToInsert.find(h => h.client_id === created.client_id && !h.quota_id);
+            const historyEntry = historyToInsert.find(h => h.client_id === created.client_id && h.quota_id === null);
             if (historyEntry) historyEntry.quota_id = created.id;
           });
         }
@@ -195,7 +195,7 @@ serve(async (req) => {
 
     // Process updates in batches
     if (quotasToUpdate.length > 0) {
-      const batchSize = 20; // Smaller batch size for updates
+      const batchSize = 20;
       for (let i = 0; i < quotasToUpdate.length; i += batchSize) {
         const batch = quotasToUpdate.slice(i, i + batchSize);
         const updatePromises = batch.map(async quota => {
@@ -226,17 +226,20 @@ serve(async (req) => {
 
         // Map updated IDs for history
         successfulUpdates.forEach(id => {
-          const historyEntry = historyToInsert.find(h => h.quota_id === '' && h.new_quota_value !== null);
+          const historyEntry = historyToInsert.find(h => h.quota_id === null && h.new_quota_value !== null);
           if (historyEntry && id) historyEntry.quota_id = id;
         });
       }
     }
 
-    // Insert all history entries in one go
-    if (historyToInsert.length > 0) {
+    // Filter out history entries that don't have a quota_id (due to failed operations)
+    const validHistoryEntries = historyToInsert.filter(entry => entry.quota_id !== null);
+
+    // Insert all valid history entries in one go
+    if (validHistoryEntries.length > 0) {
       const { error: historyError } = await supabaseAdmin
         .from('bakery_quota_history')
-        .insert(historyToInsert);
+        .insert(validHistoryEntries);
 
       if (historyError) {
         console.error('Edge Function: History insert error:', historyError);
