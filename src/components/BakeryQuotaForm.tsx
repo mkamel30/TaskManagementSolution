@@ -15,7 +15,7 @@ import { Info } from 'lucide-react';
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
 interface BakeryQuotaFormProps {
-  initialData?: BakeryQuota;
+  initialData?: BakeryQuota | BakeryQuotaFormData; // Updated type here
   onSubmit: (quota: BakeryQuotaFormData, existingQuotaId?: string) => Promise<void>;
   onCancel: () => void;
 }
@@ -25,8 +25,8 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
   onSubmit, 
   onCancel 
 }) => {
-  const isEditing = !!initialData?.id;
-  const isAddingForExistingClient = !!initialData && !initialData.id;
+  const isEditing = !!(initialData as BakeryQuota)?.id; // Cast to BakeryQuota for id check
+  const isAddingForExistingClient = !!initialData && !isEditing;
 
   const [formData, setFormData] = useState<BakeryQuotaFormData>({
     client_id: initialData?.client_id || '',
@@ -42,8 +42,8 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
 
   useEffect(() => {
     if (isEditing) {
-      setPreviousQuotaValue(initialData.quota_value);
-      setExistingQuotaForClientId(initialData);
+      setPreviousQuotaValue((initialData as BakeryQuota).quota_value); // Cast for direct access
+      setExistingQuotaForClientId(initialData as BakeryQuota);
     } else if (isAddingForExistingClient) {
       const fetchExisting = async () => {
         setIsFetchingPreviousQuota(true);
@@ -207,7 +207,7 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
       {isEditing && (
         <>
           <Separator className="my-4" />
-          <BakeryQuotaHistory quotaId={initialData.id} />
+          <BakeryQuotaHistory quotaId={(initialData as BakeryQuota).id} />
         </>
       )}
 
