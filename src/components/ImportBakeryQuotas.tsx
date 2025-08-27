@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, Eye, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, Eye, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { importBakeryQuotasFromExcel } from '@/api/bakery-quotas';
 import * as XLSX from 'xlsx';
 
@@ -22,7 +22,6 @@ export const ImportBakeryQuotas: React.FC = () => {
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [progress, setProgress] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -30,7 +29,6 @@ export const ImportBakeryQuotas: React.FC = () => {
       setFile(selectedFile);
       setShowPreview(false);
       setImportResult(null);
-      setProgress(0);
       parseExcelFile(selectedFile);
     }
   };
@@ -69,9 +67,8 @@ export const ImportBakeryQuotas: React.FC = () => {
     const loadingToast = toast.loading('جاري معالجة الملف...');
 
     try {
-      const result = await importBakeryQuotasFromExcel(previewData, (progressValue) => {
-        setProgress(progressValue);
-      });
+      const result = await importBakeryQuotasFromExcel(previewData);
+      console.log('Import result:', result);
       
       setImportResult(result);
       
@@ -99,7 +96,6 @@ export const ImportBakeryQuotas: React.FC = () => {
     setPreviewData([]);
     setShowPreview(false);
     setImportResult(null);
-    setProgress(0);
     const fileInput = document.getElementById('file-input') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
   };
@@ -198,28 +194,13 @@ export const ImportBakeryQuotas: React.FC = () => {
             </div>
             <div className="flex gap-2">
               <Button onClick={handleImport} disabled={isUploading} className="flex items-center gap-2">
-                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload size={16} />}
+                <Upload size={16} />
                 {isUploading ? 'جاري الاستيراد...' : 'استيراد البيانات'}
               </Button>
               <Button variant="outline" onClick={() => setShowPreview(false)}>
                 <X size={16} />
                 إلغاء المعاينة
               </Button>
-            </div>
-          </div>
-        )}
-
-        {isUploading && (
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">جاري الاستيراد...</span>
-              <span className="font-medium">{progress.toFixed(0)}%</span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div 
-                className="bg-primary h-2 rounded-full transition-all duration-300 ease-out" 
-                style={{ width: `${progress}%` }}
-              ></div>
             </div>
           </div>
         )}

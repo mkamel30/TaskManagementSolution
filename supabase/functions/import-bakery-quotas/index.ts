@@ -40,43 +40,35 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Edge Function: User ${userId} authenticated.`);
 
-    // Expecting JSON data directly from the client
-    const { data: excelData, chunkSize = 100, currentChunk = 0 } = await req.json();
-    console.log(`Edge Function: Processing chunk ${currentChunk + 1} with ${chunkSize} records.`);
+    const { data: excelData } = await req.json();
+    console.log(`Edge Function: Received ${excelData.length} rows to process.`);
 
     if (!excelData || excelData.length === 0) {
-      console.warn('Edge Function: No data found in the request body.');
       return new Response(JSON.stringify({ error: 'No data found in the request body' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
     }
 
-    const startIdx = currentChunk * chunkSize;
-    const endIdx = Math.min(startIdx + chunkSize, excelData.length);
-    const chunkData = excelData.slice(startIdx, endIdx);
-    
-    const totalChunks = Math.ceil(excelData.length / chunkSize);
-    const progress = ((currentChunk + 1) / totalChunks) * 100;
+    // --- PASS 1: Build the final state map from Excel data ---
+    const finalQuotaMap = new Map<string, any>();
+    const excelErrors: { row: number; message: string }[] = [];
 
-    const latestQuotasMap = new Map<string, any>();
-    const historyToInsert: any[] = [];
-    const errors: { row: number; message: string }[] = [];
-    let processedCount = 0;
-    let createdCount = 0;
-    let updatedCount = 0;
-
-    for (let i = 0; i < chunkData.length; i++) {
-      const row = chunkData[i];
-      const globalRowIndex = startIdx + i + 1; // 1-based index for user feedback
+    for (let i = 0; i < excelData.length; i++) {
+      const row = excelData[i];
+      const rowIndex = i + 1;
 
       try {
         const client_id = row['BAKERY_CODE']?.toString().trim();
         const client_name = row['BAKERY_NAME']?.toString().trim();
-        const old_quota_value = parseFloat(row['OLD_AVG_']?.toString() || '0');
         const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
         const discount_type = row['discount_type']?.toString().trim() || null;
+
+        if (!client_id || !client_name) {
+          excelErrors.push({ row: rowIndex, message: 'كود العميل أو اسم العميل مفقود' });
+          continue;
+        }
 
         let quota_date: string;
         if (raw_quota_date) {
@@ -86,113 +78,178 @@ serve(async (req) => {
             quota_date = date.toISOString().split('T')[0];
           } else {
             const parsedDate = new Date(raw_quota_date);
-            if (!isNaN(parsedDate.getTime())) {
-              quota_date = parsedDate.toISOString().split('T')[0];
-            } else {
-              quota_date = new Date().toISOString().split('T')[0];
-            }
+            quota_date = isNaN(parsedDate.getTime()) ? new Date().toISOString().split('T')[0] : parsedDate.toISOString().split('T')[0];
           }
         } else {
           quota_date = new Date().toISOString().split('T')[0];
         }
 
-        const notes = null;
-
-        if (!client_id || !client_name) {
-          errors.push({ row: globalRowIndex, message: 'كود العميل أو اسم العميل مفقود' });
-          continue;
-        }
-
-        // Check if this is an update or a new entry
-        const existingQuota = latestQuotasMap.get(client_id);
-        if (existingQuota) {
-          updatedCount++;
-        } else {
-          createdCount++;
-        }
-
-        latestQuotasMap.set(client_id, {
-          client_id: client_id,
-          client_name: client_name,
+        finalQuotaMap.set(client_id, {
+          client_id,
+          client_name,
           quota_value: new_quota_value,
-          quota_date: quota_date,
-          notes: notes,
-          discount_type: discount_type,
+          quota_date,
+          notes: null,
+          discount_type,
           updated_at: new Date().toISOString(),
         });
-
-        historyToInsert.push({
-          client_id: client_id,
-          user_id: userId,
-          change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
-          old_quota_value: old_quota_value,
-          new_quota_value: new_quota_value,
-          changed_at: quota_date,
-          notes: notes,
-          trunc_a_ope_date_: quota_date,
-        });
-        
-        processedCount++;
-
       } catch (error: any) {
-        console.error(`Edge Function: Error processing row ${globalRowIndex}:`, error);
-        errors.push({ row: globalRowIndex, message: `خطأ في معالجة الصف: ${error.message || 'خطأ غير معروف'}` });
+        excelErrors.push({ row: rowIndex, message: `خطأ في معالجة الصف: ${error.message || 'خطأ غير معروف'}` });
       }
     }
 
-    const quotasToUpsert = Array.from(latestQuotasMap.values());
-    console.log(`Edge Function: Prepared ${quotasToUpsert.length} unique quotas for upsert in chunk ${currentChunk + 1}.`);
+    if (finalQuotaMap.size === 0) {
+      return new Response(JSON.stringify({ 
+        error: 'No valid records could be parsed from the Excel file.',
+        errors: excelErrors 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
 
-    const { data: upsertedBakeries, error: upsertError } = await supabaseAdmin
+    // --- PASS 2: Fetch existing data and determine what to do ---
+    const clientIdsToUpdate = Array.from(finalQuotaMap.keys());
+    const { data: existingQuotas, error: fetchError } = await supabaseAdmin
       .from('bakery_quotas')
-      .upsert(quotasToUpsert, { onConflict: 'client_id' })
-      .select('id, client_id, quota_value');
+      .select('client_id, quota_value, quota_date')
+      .in('client_id', clientIdsToUpdate);
 
-    if (upsertError) {
-      console.error('Edge Function: Batch upsert error:', upsertError);
-      throw new Error(`فشل تحديث بيانات المخابز: ${upsertError.message}`);
+    if (fetchError) {
+      console.error('Edge Function: Error fetching existing quotas:', fetchError);
+      throw new Error(`فشل في جلب البيانات الحالية: ${fetchError.message}`);
     }
 
-    const bakeryIdMap = new Map<string, { id: string, new_quota_value: number }>();
-    upsertedBakeries.forEach(b => bakeryIdMap.set(b.client_id, { id: b.id, new_quota_value: b.quota_value }));
+    const existingQuotaMap = new Map<string, { quota_value: number; quota_date: string }>();
+    existingQuotas?.forEach(q => existingQuotaMap.set(q.client_id, { quota_value: q.quota_value, quota_date: q.quota_date }));
 
-    const finalHistoryEntries = historyToInsert.map(entry => {
-      const bakeryInfo = bakeryIdMap.get(entry.client_id);
-      if (!bakeryInfo) {
-        errors.push({ row: 0, message: `لم يتم العثور على معرف مخبز لـ client_id: ${entry.client_id} أثناء إنشاء السجل التاريخي.` });
-        return null;
+    const quotasToCreate: any[] = [];
+    const quotasToUpdate: any[] = [];
+    const historyToInsert: any[] = [];
+
+    finalQuotaMap.forEach((finalQuota, client_id) => {
+      const existingQuota = existingQuotaMap.get(client_id);
+
+      if (existingQuota) {
+        // Check if an update is actually needed
+        if (existingQuota.quota_value !== finalQuota.quota_value || existingQuota.quota_date !== finalQuota.quota_date) {
+          quotasToUpdate.push(finalQuota);
+          historyToInsert.push({
+            quota_id: '', // Will be filled after update
+            user_id: userId,
+            change_description: `تم تغيير الحصة من ${existingQuota.quota_value} إلى ${finalQuota.quota_value}`,
+            old_quota_value: existingQuota.quota_value,
+            new_quota_value: finalQuota.quota_value,
+            changed_at: finalQuota.quota_date,
+            notes: finalQuota.notes,
+            trunc_a_ope_date_: finalQuota.quota_date,
+          });
+        }
+      } else {
+        quotasToCreate.push(finalQuota);
+        historyToInsert.push({
+          quota_id: '', // Will be filled after creation
+          user_id: userId,
+          change_description: `تم إنشاء حصة تأمينية جديدة بقيمة ${finalQuota.quota_value}`,
+          old_quota_value: null,
+          new_quota_value: finalQuota.quota_value,
+          changed_at: finalQuota.quota_date,
+          notes: finalQuota.notes,
+          trunc_a_ope_date_: finalQuota.quota_date,
+        });
       }
-      return {
-        quota_id: bakeryInfo.id,
-        user_id: entry.user_id,
-        change_description: entry.change_description,
-        old_quota_value: entry.old_quota_value,
-        new_quota_value: entry.new_quota_value,
-        changed_at: entry.changed_at,
-        notes: entry.notes,
-        trunc_a_ope_date_: entry.trunc_a_ope_date_,
-      };
-    }).filter(Boolean);
+    });
 
-    if (finalHistoryEntries.length > 0) {
-      const { error: historyInsertError } = await supabaseAdmin
+    console.log(`Edge Function: Ready to create ${quotasToCreate.length} quotas and update ${quotasToUpdate.length} quotas.`);
+
+    // --- PASS 3: Perform database operations ---
+    const allErrors: { row: number; message: string }[] = [...excelErrors];
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    // Process creations in batches
+    if (quotasToCreate.length > 0) {
+      const batchSize = 20; // Smaller batch size for creations
+      for (let i = 0; i < quotasToCreate.length; i += batchSize) {
+        const batch = quotasToCreate.slice(i, i + batchSize);
+        const { data: createdQuotas, error: createError } = await supabaseAdmin
+          .from('bakery_quotas')
+          .insert(batch)
+          .select('id, client_id');
+
+        if (createError) {
+          console.error('Edge Function: Batch creation error:', createError);
+          batch.forEach(quota => {
+            allErrors.push({ row: 0, message: `فشل إنشاء سجل العميل ${quota.client_id}: ${createError.message}` });
+          });
+        } else {
+          createdCount += createdQuotas?.length || 0;
+          // Map created IDs for history
+          createdQuotas?.forEach(created => {
+            const historyEntry = historyToInsert.find(h => h.client_id === created.client_id && !h.quota_id);
+            if (historyEntry) historyEntry.quota_id = created.id;
+          });
+        }
+      }
+    }
+
+    // Process updates in batches
+    if (quotasToUpdate.length > 0) {
+      const batchSize = 20; // Smaller batch size for updates
+      for (let i = 0; i < quotasToUpdate.length; i += batchSize) {
+        const batch = quotasToUpdate.slice(i, i + batchSize);
+        const updatePromises = batch.map(async quota => {
+          const { error: updateError } = await supabaseAdmin
+            .from('bakery_quotas')
+            .update({ ...quota, updated_at: new Date().toISOString() })
+            .eq('client_id', quota.client_id);
+
+          if (updateError) {
+            console.error('Edge Function: Update error for client_id:', quota.client_id, updateError);
+            allErrors.push({ row: 0, message: `فشل تحديث سجل العميل ${quota.client_id}: ${updateError.message}` });
+            return null;
+          }
+
+          // Get the ID of the updated record for history
+          const { data: updatedQuota } = await supabaseAdmin
+            .from('bakery_quotas')
+            .select('id')
+            .eq('client_id', quota.client_id)
+            .single();
+          
+          return updatedQuota?.id;
+        });
+
+        const updatedIds = await Promise.all(updatePromises);
+        const successfulUpdates = updatedIds.filter(id => id !== null);
+        updatedCount += successfulUpdates.length;
+
+        // Map updated IDs for history
+        successfulUpdates.forEach(id => {
+          const historyEntry = historyToInsert.find(h => h.quota_id === '' && h.new_quota_value !== null);
+          if (historyEntry && id) historyEntry.quota_id = id;
+        });
+      }
+    }
+
+    // Insert all history entries in one go
+    if (historyToInsert.length > 0) {
+      const { error: historyError } = await supabaseAdmin
         .from('bakery_quota_history')
-        .insert(finalHistoryEntries);
+        .insert(historyToInsert);
 
-      if (historyInsertError) {
-        console.error('Edge Function: Batch history insert error:', historyInsertError);
-        throw new Error(`فشل في إدخال السجلات التاريخية: ${historyInsertError.message}`);
+      if (historyError) {
+        console.error('Edge Function: History insert error:', historyError);
+        // Don't fail the whole operation if history fails, but log it
       }
     }
 
     return new Response(JSON.stringify({
       total: excelData.length,
-      processed: processedCount,
+      processed: finalQuotaMap.size,
       created: createdCount,
       updated: updatedCount,
-      errors: errors,
-      progress: progress,
-      isLastChunk: currentChunk === totalChunks - 1,
+      errors: allErrors,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
