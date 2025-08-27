@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BakeryQuotaHistory as BakeryQuotaHistoryType } from '@/api/bakery-quotas'; // Import the type
 
 interface QuotaHistoryRowProps {
   quotaId: string;
@@ -73,7 +74,7 @@ export const QuotaHistoryRow: React.FC<QuotaHistoryRowProps> = ({ quotaId }) => 
             <CollapsibleContent>
               <div className="border-t border-gray-200 dark:border-gray-700 p-4">
                 <ul className="space-y-3">
-                  {history.map((entry) => (
+                  {history.map((entry: BakeryQuotaHistoryType) => ( // Cast entry to the imported type
                     <li key={entry.id} className="relative pl-6">
                       <div className="absolute left-0 top-1 w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full ring-4 ring-background" />
                       <p className="font-medium text-sm text-right">{entry.change_description}</p>
