@@ -20,6 +20,7 @@ import {
 
 export const BakeryQuotaStats: React.FC = () => {
   const [isYesterdayDetailsOpen, setIsYesterdayDetailsOpen] = useState(false);
+  const [isTodayDetailsOpen, setIsTodayDetailsOpen] = useState(false); // New state for today's details dialog
 
   const { data: todayEdits, isLoading: isLoadingToday } = useQuery({
     queryKey: ['bakeryQuotaStatsToday'],
@@ -51,16 +52,47 @@ export const BakeryQuotaStats: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-right">تعديلات اليوم</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="text-right">
-            {isLoadingToday ? <Skeleton className="h-6 w-1/2" /> : <div className="text-2xl font-bold">{todayEdits}</div>}
-          </CardContent>
-        </Card>
+        {/* Today's Edits Card with Dialog Trigger */}
+        <Dialog open={isTodayDetailsOpen} onOpenChange={setIsTodayDetailsOpen}>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:shadow-md transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-right">تعديلات اليوم</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="text-right">
+                {isLoadingToday ? <Skeleton className="h-6 w-1/2" /> : <div className="text-2xl font-bold">{todayEdits}</div>}
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="text-right">تعديلات اليوم حسب العميل</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 text-right max-h-60 overflow-y-auto"> {/* Added max-height and overflow */}
+              {isLoadingPerClientToday ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ) : perClientToday && perClientToday.length > 0 ? (
+                <ul className="space-y-2">
+                  {perClientToday.map((entry, index) => (
+                    <li key={index} className="flex justify-between items-center text-sm">
+                      <span>{entry.client_id}</span>
+                      <span className="font-semibold">{entry.edit_count}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-muted-foreground text-sm">لا توجد تعديلات للعملاء اليوم.</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
+        {/* Yesterday's Edits Card with Dialog Trigger */}
         <Dialog open={isYesterdayDetailsOpen} onOpenChange={setIsYesterdayDetailsOpen}>
           <DialogTrigger asChild>
             <Card className="cursor-pointer hover:shadow-md transition-shadow">
@@ -77,7 +109,7 @@ export const BakeryQuotaStats: React.FC = () => {
             <DialogHeader>
               <DialogTitle className="text-right">تعديلات أمس حسب العميل</DialogTitle>
             </DialogHeader>
-            <div className="py-4 text-right">
+            <div className="py-4 text-right max-h-60 overflow-y-auto"> {/* Added max-height and overflow */}
               {isLoadingPerClientYesterday ? (
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-3/4" />
@@ -120,36 +152,8 @@ export const BakeryQuotaStats: React.FC = () => {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-right flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              <span>تعديلات اليوم حسب العميل</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-right">
-            {isLoadingPerClientToday ? (
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-2/3" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            ) : perClientToday && perClientToday.length > 0 ? (
-              <ul className="space-y-2">
-                {perClientToday.map((entry, index) => (
-                  <li key={index} className="flex justify-between items-center text-sm">
-                    <span>{entry.client_id}</span>
-                    <span className="font-semibold">{entry.edit_count}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground text-sm">لا توجد تعديلات للعملاء اليوم.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Removed the separate 'Today's Edits per Client' card as it's now in a dialog */}
+      {/* The 'Today's Edits per Client' section is now handled by the dialog above */}
     </div>
   );
 };
