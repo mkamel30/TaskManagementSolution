@@ -5,9 +5,9 @@ export type BakeryQuota = {
   client_id: string;
   client_name: string;
   quota_value: number;
-  quota_date: string;
+  quota_date: string; // This will be stored as YYYY-MM-DD for database compatibility
   notes?: string;
-  discount_type?: string;
+  discount_type?: string; // New: Discount Type
   created_at: string;
   updated_at: string;
 };
@@ -19,7 +19,7 @@ export type BakeryQuotaHistoryEntry = {
   change_description: string;
   old_quota_value?: number;
   new_quota_value?: number;
-  changed_at: string;
+  changed_at: string; // This will be a full timestamp with time
   user_email?: string;
   notes?: string;
 };
@@ -28,8 +28,7 @@ export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
   const { data, error } = await supabase
     .from('bakery_quotas')
     .select('*')
-    .order('quota_date', { ascending: false })
-    .limit(null); // <--- Added this line to fetch all records
+    .order('quota_date', { ascending: false }); // Sort by quota_date descending
 
   if (error) {
     console.error('Error fetching bakery quotas:', error);
@@ -44,11 +43,11 @@ export const getBakeryQuotaByClientId = async (clientId: string): Promise<Bakery
     .from('bakery_quotas')
     .select('*')
     .eq('client_id', clientId)
-    .order('quota_date', { ascending: false })
+    .order('quota_date', { ascending: false }) // Get the latest by date
     .limit(1)
     .single();
 
-  if (error && error.code !== 'PGRST116') {
+  if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
     console.error('Error fetching bakery quota by client ID:', error);
     throw error;
   }
@@ -59,7 +58,7 @@ export const getBakeryQuotaByClientId = async (clientId: string): Promise<Bakery
 export const getBakeryQuotaHistory = async (quotaId: string): Promise<BakeryQuotaHistoryEntry[]> => {
   const { data, error } = await supabase.rpc('get_bakery_quota_history_with_user', {
     p_quota_id: quotaId,
-  }).limit(null); // <--- Added .limit(null) here
+  });
 
   if (error) {
     console.error('Error fetching bakery quota history:', error);
@@ -84,13 +83,14 @@ export const createBakeryQuota = async (quota: Omit<BakeryQuota, 'id' | 'created
     throw error;
   }
 
+  // Log history with current timestamp
   const { error: historyError } = await supabase.from('bakery_quota_history').insert({
     quota_id: data.id,
     user_id: user.id,
     change_description: 'تم إنشاء حصة تأمينية جديدة.',
     new_quota_value: quota.quota_value,
     notes: quota.notes,
-    changed_at: new Date().toISOString(),
+    changed_at: new Date().toISOString(), // Use current timestamp for changed_at
   });
 
   if (historyError) {
@@ -124,6 +124,7 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
     throw error;
   }
 
+  // Log history after successful update with current timestamp
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
     let description = 'تم تحديث تفاصيل الحصة التأمينية.';
@@ -138,7 +139,7 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
       old_quota_value: existingQuotaData.quota_value,
       new_quota_value: updates.quota_value,
       notes: updates.notes || existingQuotaData.notes,
-      changed_at: new Date().toISOString(),
+      changed_at: new Date().toISOString(), // Use current timestamp for changed_at
     });
 
     if (historyError) {
@@ -200,57 +201,37 @@ export const deleteBakeryQuota = async (id: string) => {
   }
 };
 
-export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?: (progress: number) => void) => {
-  const CHUNK_SIZE = 20; // Reduced chunk size to make each Edge Function call lighter
+const CHUNK_SIZE = 100; // Define a chunk size, e.g., 100 rows per request
+
+export const importBakeryQuotasFromExcel = async (excelData: any[]) => {
   let totalProcessed = 0;
-  let totalCreated = 0;
-  let totalUpdated = 0;
-  let allErrors: { row: number; message: string }[] = [];
+  let allErrors: string[] = [];
 
-  const totalChunks = Math.ceil(excelData.length / CHUNK_SIZE);
+  for (let i = 0; i < excelData.length; i += CHUNK_SIZE) {
+    const chunk = excelData.slice(i, i + CHUNK_SIZE);
+    try {
+      const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
+        body: { data: chunk },
+      });
 
-  for (let i = 0; i < totalChunks; i++) {
-    const chunkIndex = i;
-    const startIndex = chunkIndex * CHUNK_SIZE;
-    const chunkToSend = excelData.slice(startIndex, startIndex + CHUNK_SIZE);
-
-    console.log(`Client: Sending chunk ${chunkIndex + 1}/${totalChunks} (records ${startIndex + 1}-${startIndex + chunkToSend.length})`);
-
-    const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
-      body: { 
-        data: chunkToSend,
-        chunkSize: CHUNK_SIZE, 
-        chunkIndex 
-      },
-    });
-
-    if (error) {
-      console.error(`Client: Error invoking edge function for chunk ${chunkIndex + 1}:`, error);
-      throw new Error(`فشل في معالجة الجزء ${chunkIndex + 1}: ${error.message}`);
-    }
-
-    if (data.success) {
-      totalProcessed += chunkToSend.length;
-      totalCreated += data.created;
-      totalUpdated += data.updated;
-      allErrors = [...allErrors, ...data.errors];
-      
-      const progress = (totalProcessed / excelData.length) * 100;
-      if (onProgress) {
-        onProgress(progress);
+      if (error) {
+        console.error(`Error importing chunk ${i / CHUNK_SIZE + 1}:`, error);
+        allErrors.push(`Error processing chunk ${i / CHUNK_SIZE + 1}: ${error.message}`);
+      } else if (data) {
+        totalProcessed += data.processed;
+        if (data.errors && data.errors.length > 0) {
+          allErrors = allErrors.concat(data.errors);
+        }
       }
-    } else {
-      console.error(`Client: Edge function reported error for chunk ${chunkIndex + 1}:`, data.error);
-      allErrors = [...allErrors, ...data.errors];
-      throw new Error(data.error || `حدث خطأ غير معروف أثناء معالجة الجزء ${chunkIndex + 1}.`);
+    } catch (e: any) {
+      console.error(`Exception during chunk import ${i / CHUNK_SIZE + 1}:`, e);
+      allErrors.push(`Exception processing chunk ${i / CHUNK_SIZE + 1}: ${e.message || 'Unknown error'}`);
     }
   }
 
   return {
     total: excelData.length,
     processed: totalProcessed,
-    created: totalCreated,
-    updated: totalUpdated,
     errors: allErrors,
   };
 };
