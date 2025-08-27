@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-// Removed XLSX import as parsing is now client-side
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,7 +40,6 @@ serve(async (req) => {
     const userId = user.id;
     console.log(`Edge Function: User ${userId} authenticated.`);
 
-    // Expecting JSON data directly from the client
     const { data: excelDataChunk } = await req.json();
     console.log(`Edge Function: Received chunk with ${excelDataChunk.length} rows.`);
 
@@ -53,18 +51,19 @@ serve(async (req) => {
       });
     }
 
-    const latestQuotasMap = new Map<string, any>(); // To store only the latest entry for each client_id
+    const latestQuotasMap = new Map<string, any>();
     const historyToInsert: any[] = [];
     const errors: string[] = [];
+    let processedRowsInChunk = 0;
 
-    for (const row of excelDataChunk) { // Iterate over the received JSON data chunk
+    for (const row of excelDataChunk) {
       try {
         const client_id = row['BAKERY_CODE']?.toString().trim();
         const client_name = row['BAKERY_NAME']?.toString().trim();
         const old_quota_value = parseFloat(row['OLD_AVG_']?.toString() || '0');
         const new_quota_value = parseFloat(row['NEW_AVG_']?.toString() || '0');
         const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
-        const discount_type = row['discount_type']?.toString().trim() || null; // Matches 'discount_type' header
+        const discount_type = row['discount_type']?.toString().trim() || null;
 
         let quota_date: string;
         if (raw_quota_date) {
@@ -84,36 +83,35 @@ serve(async (req) => {
           quota_date = new Date().toISOString().split('T')[0];
         }
 
-        // Set notes to null as there is no 'NOTES' column in the provided Excel headers
-        const notes = null; 
+        const notes = null;
 
         if (!client_id || !client_name) {
           errors.push(`Skipping row with missing client_id or client_name: ${JSON.stringify(row)}`);
           continue;
         }
 
-        // Store the latest quota for this client_id in the map
         latestQuotasMap.set(client_id, {
           client_id: client_id,
           client_name: client_name,
           quota_value: new_quota_value,
           quota_date: quota_date,
-          notes: notes, // Set to null
+          notes: notes,
           discount_type: discount_type,
-          updated_at: new Date().toISOString(), // Ensure updated_at is set
+          updated_at: new Date().toISOString(),
         });
 
-        // Store history data for every change, will link quota_id after upsert
         historyToInsert.push({
-          client_id: client_id, // Use client_id temporarily to link later
+          client_id: client_id,
           user_id: userId,
           change_description: `تم تغيير الحصة من ${old_quota_value} إلى ${new_quota_value}`,
           old_quota_value: old_quota_value,
           new_quota_value: new_quota_value,
-          changed_at: quota_date, // Use quota_date for changed_at
-          notes: notes, // Set to null
-          trunc_a_ope_date_: quota_date, // Also set this column
+          changed_at: quota_date,
+          notes: notes,
+          trunc_a_ope_date_: quota_date,
         });
+        
+        processedRowsInChunk++;
 
       } catch (error: any) {
         console.error('Edge Function: Error processing row for batch:', error);
@@ -121,15 +119,13 @@ serve(async (req) => {
       }
     }
 
-    const quotasToUpsert = Array.from(latestQuotasMap.values()); // Convert map values to array for upsert
+    const quotasToUpsert = Array.from(latestQuotasMap.values());
     console.log(`Edge Function: Prepared ${quotasToUpsert.length} unique quotas for upsert and ${historyToInsert.length} history entries.`);
-    console.log('Edge Function: Quotas to upsert payload:', JSON.stringify(quotasToUpsert)); // Log the actual payload
 
-    // Perform batch upsert for bakery_quotas
     const { data: upsertedBakeries, error: upsertError } = await supabaseAdmin
       .from('bakery_quotas')
       .upsert(quotasToUpsert, { onConflict: 'client_id' })
-      .select('id, client_id, quota_value'); // Select id and the new quota_value
+      .select('id, client_id, quota_value');
 
     if (upsertError) {
       console.error('Edge Function: Batch upsert error:', upsertError);
@@ -140,7 +136,6 @@ serve(async (req) => {
     const bakeryIdMap = new Map<string, { id: string, new_quota_value: number }>();
     upsertedBakeries.forEach(b => bakeryIdMap.set(b.client_id, { id: b.id, new_quota_value: b.quota_value }));
 
-    // Now, link quota_id to history entries and perform batch insert
     const finalHistoryEntries = historyToInsert.map(entry => {
       const bakeryInfo = bakeryIdMap.get(entry.client_id);
       if (!bakeryInfo) {
@@ -157,7 +152,7 @@ serve(async (req) => {
         notes: entry.notes,
         trunc_a_ope_date_: entry.trunc_a_ope_date_,
       };
-    }).filter(Boolean); // Remove any null entries if ID mapping failed
+    }).filter(Boolean);
 
     if (finalHistoryEntries.length > 0) {
       const { error: historyInsertError } = await supabaseAdmin
@@ -169,14 +164,16 @@ serve(async (req) => {
         throw new Error(`Failed to insert bakery quota history: ${historyInsertError.message}`);
       }
       console.log(`Edge Function: Successfully inserted ${finalHistoryEntries.length} history entries.`);
-    } else {
-      console.log('Edge Function: No history entries to insert for this chunk.');
     }
 
     return new Response(JSON.stringify({
-      total: excelDataChunk.length,
-      processed: finalHistoryEntries.length, // Number of history entries successfully inserted
+      processed: finalHistoryEntries.length,
       errors: errors,
+      debugLogs: [
+        `Processed ${processedRowsInChunk} rows from chunk.`,
+        `Upserted ${upsertedBakeries.length} unique bakeries.`,
+        `Inserted ${finalHistoryEntries.length} history records.`,
+      ],
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
