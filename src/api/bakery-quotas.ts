@@ -44,25 +44,37 @@ export const getBakeryQuotas = async (
   sortBy: string = 'quota_date',
   sortOrder: string = 'desc'
 ): Promise<PaginatedBakeryQuotasResponse> => {
-  const { data, error, count } = await supabase
-    .rpc('get_paginated_bakery_quotas', {
-      page,
-      items_per_page: itemsPerPage,
-      search_query: searchQuery,
-      sort_by: sortBy,
-      sort_order: sortOrder
-    })
-    .select('*');
+  try {
+    const { data, error, count } = await supabase
+      .rpc('get_paginated_bakery_quotas', {
+        page,
+        items_per_page: itemsPerPage,
+        search_query: searchQuery,
+        sort_by: sortBy,
+        sort_order: sortOrder
+      })
+      .select('*');
 
-  if (error) {
-    console.error('Error fetching paginated bakery quotas:', error);
+    if (error) {
+      console.error('Error fetching paginated bakery quotas:', error);
+      throw error;
+    }
+
+    // The RPC function returns both the data and total count
+    // We need to extract them properly
+    const bakeryData = data as (BakeryQuota & { total_changes_count: number })[];
+    
+    // The total count is returned as the first row's total_count field
+    const totalCount = bakeryData.length > 0 ? bakeryData[0].total_count || 0 : 0;
+
+    return {
+      data: bakeryData,
+      total: totalCount
+    };
+  } catch (error) {
+    console.error('Error in getBakeryQuotas:', error);
     throw error;
   }
-
-  return {
-    data: data as (BakeryQuota & { total_changes_count: number })[],
-    total: count || 0
-  };
 };
 
 export const getBakeryQuotaByClientId = async (clientId: string): Promise<BakeryQuota | null> => {

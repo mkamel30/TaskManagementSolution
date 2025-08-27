@@ -46,7 +46,7 @@ const BakeryQuotasPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const { data: paginatedData, isLoading, isError } = useQuery({
+  const { data: paginatedData, isLoading, isError, error } = useQuery({
     queryKey: ['bakeryQuotas', currentPage, itemsPerPage, searchQuery, sortBy, sortOrder],
     queryFn: () => getBakeryQuotas(currentPage, itemsPerPage, searchQuery, sortBy, sortOrder),
     keepPreviousData: true, // Keep previous data while fetching new page
@@ -187,7 +187,10 @@ const BakeryQuotasPage = () => {
     : (addingRecordForQuota ? `إضافة سجل جديد لـ ${addingRecordForQuota.client_name}` : 'إضافة مخبز جديد');
 
   if (isLoading) return <div className="text-center p-8">جاري تحميل بيانات المخابز...</div>;
-  if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز</div>;
+  if (isError) {
+    console.error('Error in BakeryQuotasPage:', error);
+    return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز: {error?.message}</div>;
+  }
 
   const { data: bakeries, total } = paginatedData || { data: [], total: 0 };
 
