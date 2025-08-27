@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getBakeryQuotas, createBakeryQuota, updateBakeryQuota, deleteBakeryQuota } from '@/api/bakery-quotas';
+import { getPaginatedBakeryQuotas, createBakeryQuota, updateBakeryQuota, deleteBakeryQuota } from '@/api/bakery-quotas';
 import { BakeryQuota } from '@/api/bakery-quotas';
 import { BakeryQuotaForm } from '@/components/BakeryQuotaForm';
 import { Button } from '@/components/ui/button';
@@ -46,33 +46,18 @@ const BakeryQuotasPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const { data: allQuotas, isLoading, isError } = useQuery<BakeryQuota[]>({
-    queryKey: ['bakeryQuotas'],
-    queryFn: getBakeryQuotas,
+  const { data: paginatedResponse, isLoading, isError } = useQuery({
+    queryKey: ['bakeryQuotas', currentPage, itemsPerPage, searchQuery, sortBy, sortOrder],
+    queryFn: () => getPaginatedBakeryQuotas(currentPage, itemsPerPage, searchQuery, sortBy, sortOrder),
   });
 
-  const { data: historyCounts } = useQuery({
-    queryKey: ['bakeryQuotaHistoryCounts'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_client_history_counts');
-      if (error) {
-        console.error("Error fetching history counts:", error);
-        return new Map<string, number>();
-      }
-      const countMap = new Map<string, number>();
-      (data as { client_id: string; change_count: number }[]).forEach(item => {
-        countMap.set(item.client_id, item.change_count);
-      });
-      return countMap;
-    },
-    enabled: !!allQuotas,
-  });
+  const bakeries = paginatedResponse?.data || [];
+  const totalBakeriesCount = paginatedResponse?.count || 0;
 
   const createMutation = useMutation({
     mutationFn: (newQuota: BakeryQuotaFormData) => createBakeryQuota(newQuota),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
-      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistoryCounts'] });
       showSuccess('تم إنشاء الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
     },
@@ -85,7 +70,6 @@ const BakeryQuotasPage = () => {
     mutationFn: (variables: { id: string, updates: Partial<BakeryQuotaFormData> }) => updateBakeryQuota(variables.id, variables.updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
-      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistoryCounts'] });
       showSuccess('تم تحديث الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
       setEditingQuota(null);
@@ -100,7 +84,6 @@ const BakeryQuotasPage = () => {
     mutationFn: deleteBakeryQuota,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
-      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistoryCounts'] });
       showSuccess('تم حذف الحصة التأمينية بنجاح');
     },
     onError: (error) => {
@@ -141,9 +124,7 @@ const BakeryQuotasPage = () => {
       quota_value: 0,
       quota_date: new Date().toISOString().split('T')[0],
       notes: quota.notes,
-      id: '',
-      created_at: '',
-      updated_at: '',
+      discount_type: quota.discount_type,
     });
     setEditingQuota(null);
     setIsFormDialogOpen(true);
@@ -170,53 +151,10 @@ const BakeryQuotasPage = () => {
     setIsFormDialogOpen(open);
   };
 
-  const filteredAndSortedBakeries = useMemo(() => {
-    if (!allQuotas) return [];
-    
-    let currentBakeries = allQuotas;
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      currentBakeries = currentBakeries.filter(bakery => 
-        bakery.client_id.toLowerCase().includes(query) ||
-        bakery.client_name.toLowerCase().includes(query) ||
-        bakery.notes?.toLowerCase().includes(query)
-      );
-    }
-
-    currentBakeries.sort((a, b) => {
-      let valA: any = a[sortBy] || '';
-      let valB: any = b[sortBy] || '';
-
-      if (sortBy === 'quota_date') {
-        valA = new Date(valA).getTime();
-        valB = new Date(valB).getTime();
-      }
-
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return currentBakeries;
-  }, [allQuotas, searchQuery, sortBy, sortOrder]);
-
-  const bakeriesWithHistoryCount = useMemo(() => {
-    return filteredAndSortedBakeries.map(bakery => ({
-        ...bakery,
-        total_changes_count: historyCounts?.get(bakery.client_id) || 0,
-    }));
-  }, [filteredAndSortedBakeries, historyCounts]);
-
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = bakeriesWithHistoryCount.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(bakeriesWithHistoryCount.length / itemsPerPage);
-
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-
-  const totalBakeries = allQuotas?.length || 0;
+  // Reset page to 1 when search, sort, or items per page changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, sortBy, sortOrder, itemsPerPage]);
 
   const formInitialData = editingQuota || addingRecordForQuota || undefined;
   const dialogTitle = editingQuota 
@@ -291,7 +229,7 @@ const BakeryQuotasPage = () => {
           <CardTitle className="text-right">نظرة عامة</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>إجمالي عدد المخابز: {totalBakeries}</p>
+          <p>إجمالي عدد المخابز: {totalBakeriesCount}</p>
         </CardContent>
       </Card>
 
@@ -303,18 +241,18 @@ const BakeryQuotasPage = () => {
         </TabsList>
         <TabsContent value="quotas" className="space-y-4">
           <BakeryQuotaTable
-            bakeries={currentItems} // Use paginated data
+            bakeries={bakeries}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onAddRecord={handleAddNewRecordForClient}
             searchQuery={searchQuery}
           />
-          {totalPages > 1 && (
+          {totalBakeriesCount > itemsPerPage && (
             <Pagination
-              totalItems={bakeriesWithHistoryCount.length}
+              totalItems={totalBakeriesCount}
               itemsPerPage={itemsPerPage}
               currentPage={currentPage}
-              onPageChange={paginate}
+              onPageChange={setCurrentPage}
             />
           )}
         </TabsContent>

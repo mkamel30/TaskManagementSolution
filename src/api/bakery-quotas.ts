@@ -33,18 +33,37 @@ export interface ChunkProgress {
   errors: string[];
 }
 
-export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
-  const { data, error } = await supabase
-    .from('bakery_quotas')
-    .select('*')
-    .order('created_at', { ascending: false });
+export type PaginatedBakeryQuotasResponse = {
+  data: (BakeryQuota & { total_changes_count: number })[];
+  count: number;
+};
+
+export const getPaginatedBakeryQuotas = async (
+  page: number,
+  itemsPerPage: number,
+  searchQuery: string,
+  sortBy: string,
+  sortOrder: string
+): Promise<PaginatedBakeryQuotasResponse> => {
+  const { data, error } = await supabase.rpc('get_paginated_bakery_quotas', {
+    page,
+    items_per_page: itemsPerPage,
+    search_query: searchQuery,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  });
 
   if (error) {
-    console.error('Error fetching bakery quotas:', error);
+    console.error('Error fetching paginated bakery quotas:', error);
     throw error;
   }
 
-  return data as BakeryQuota[];
+  // The RPC now returns a JSON object with 'data' and 'count'
+  const response = data as { data: (BakeryQuota & { total_changes_count: number })[]; count: number };
+  return {
+    data: response.data || [],
+    count: response.count || 0,
+  };
 };
 
 export const getBakeryQuotaByClientId = async (clientId: string): Promise<BakeryQuota | null> => {
