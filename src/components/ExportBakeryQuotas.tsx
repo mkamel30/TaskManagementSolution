@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { DatePicker } from './ui/date-picker';
-import { getPaginatedBakeryQuotas } from '@/api/bakery-quotas'; // Changed import
+import { getPaginatedBakeryQuotas, getBakeryQuotaHistory } from '@/api/bakery-quotas'; // Added getBakeryQuotaHistory
 import { utils, writeFile } from 'xlsx';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -42,7 +42,7 @@ export const ExportBakeryQuotas: React.FC = () => {
           return;
         }
 
-        const dataToExport = filteredQuotas.map(quota => ({
+        const mainQuotasDataToExport = filteredQuotas.map(quota => ({
           'كود العميل': quota.client_id,
           'اسم العميل': quota.client_name,
           'قيمة الحصة': quota.quota_value,
@@ -53,10 +53,36 @@ export const ExportBakeryQuotas: React.FC = () => {
           'آخر تحديث': format(new Date(quota.updated_at), 'd MMMM yyyy, h:mm a', { locale: ar }),
         }));
 
-        const worksheet = utils.json_to_sheet(dataToExport);
+        const historyPromises = filteredQuotas.map(async (quota) => {
+          const history = await getBakeryQuotaHistory(quota.id);
+          return history.map(entry => ({
+            'كود العميل': quota.client_id, // Add client_id for linking
+            'اسم العميل': quota.client_name, // Add client_name for context
+            'وصف التغيير': entry.change_description,
+            'القيمة القديمة': entry.old_quota_value,
+            'القيمة الجديدة': entry.new_quota_value,
+            'تاريخ التغيير': format(new Date(entry.changed_at), 'd MMMM yyyy, h:mm a', { locale: ar }),
+            'ملاحظات': entry.notes || '',
+            'المستخدم': entry.user_email,
+          }));
+        });
+
+        const allHistoryDataArrays = await Promise.all(historyPromises);
+        const allHistoryDataToExport = allHistoryDataArrays.flat(); // Flatten array of arrays
+
         const workbook = utils.book_new();
-        utils.book_append_sheet(workbook, worksheet, 'BakeryQuotas');
-        writeFile(workbook, 'BakeryQuotasExport.xlsx');
+
+        // Add main quotas sheet
+        const mainQuotasWorksheet = utils.json_to_sheet(mainQuotasDataToExport);
+        utils.book_append_sheet(workbook, mainQuotasWorksheet, 'بيانات المخابز');
+
+        // Add history sheet if there's any history data
+        if (allHistoryDataToExport.length > 0) {
+          const historyWorksheet = utils.json_to_sheet(allHistoryDataToExport);
+          utils.book_append_sheet(workbook, historyWorksheet, 'سجل تغييرات الحصص');
+        }
+
+        writeFile(workbook, 'BakeryQuotas_FullExport.xlsx');
 
         resolve('success');
       } catch (error) {
@@ -65,12 +91,12 @@ export const ExportBakeryQuotas: React.FC = () => {
     });
 
     toast.promise(exportPromise, {
-      loading: 'جاري تصدير بيانات المخابز...',
+      loading: 'جاري تصدير بيانات المخابز وسجل التغييرات...',
       success: (data) => {
         if (data === 'no_data') {
           return 'لا توجد بيانات في النطاق الزمني المحدد.';
         }
-        return 'تم تصدير بيانات المخابز بنجاح!';
+        return 'تم تصدير بيانات المخابز وسجل التغييرات بنجاح!';
       },
       error: 'حدث خطأ أثناء التصدير.',
     });
