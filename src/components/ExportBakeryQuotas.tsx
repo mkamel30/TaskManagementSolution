@@ -54,17 +54,22 @@ export const ExportBakeryQuotas: React.FC = () => {
         }));
 
         const historyPromises = filteredQuotas.map(async (quota) => {
-          const history = await getBakeryQuotaHistory(quota.id);
-          return history.map(entry => ({
-            'كود العميل': quota.client_id, // Add client_id for linking
-            'اسم العميل': quota.client_name, // Add client_name for context
-            'وصف التغيير': entry.change_description,
-            'القيمة القديمة': entry.old_quota_value,
-            'القيمة الجديدة': entry.new_quota_value,
-            'تاريخ التغيير': format(new Date(entry.changed_at), 'd MMMM yyyy, h:mm a', { locale: ar }),
-            'ملاحظات': entry.notes || '',
-            'المستخدم': entry.user_email,
-          }));
+          try {
+            const history = await getBakeryQuotaHistory(quota.id);
+            return history.map(entry => ({
+              'كود العميل': quota.client_id, // Add client_id for linking
+              'اسم العميل': quota.client_name, // Add client_name for context
+              'وصف التغيير': entry.change_description,
+              'القيمة القديمة': entry.old_quota_value,
+              'القيمة الجديدة': entry.new_quota_value,
+              'تاريخ التغيير': entry.changed_at ? format(new Date(entry.changed_at), 'd MMMM yyyy, h:mm a', { locale: ar }) : '',
+              'ملاحظات': entry.notes || '',
+              'المستخدم': entry.user_email || 'غير معروف',
+            }));
+          } catch (historyError) {
+            console.error(`Error fetching history for quota ${quota.client_id} (ID: ${quota.id}):`, historyError);
+            return []; // Return empty array for this quota's history if it fails
+          }
         });
 
         const allHistoryDataArrays = await Promise.all(historyPromises);
