@@ -201,7 +201,7 @@ export const deleteBakeryQuota = async (id: string) => {
 
 export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?: (progress: number) => void) => {
   const CHUNK_SIZE = 100; // Process 100 records at a time
-  let totalProcessed = 0; // This will track overall processed rows
+  let totalProcessed = 0;
   let totalCreated = 0;
   let totalUpdated = 0;
   let allErrors: { row: number; message: string }[] = [];
@@ -217,19 +217,19 @@ export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?:
 
     const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
       body: { 
-        data: chunkToSend, // Send the actual chunk
+        data: chunkToSend,
         chunkSize: CHUNK_SIZE, 
         chunkIndex 
       },
     });
 
     if (error) {
-      console.error(`Client: Error processing chunk ${chunkIndex + 1}:`, error);
+      console.error(`Client: Error invoking edge function for chunk ${chunkIndex + 1}:`, error);
       throw new Error(`فشل في معالجة الجزء ${chunkIndex + 1}: ${error.message}`);
     }
 
     if (data.success) {
-      totalProcessed += chunkToSend.length; // Update total processed based on the chunk sent
+      totalProcessed += chunkToSend.length;
       totalCreated += data.created;
       totalUpdated += data.updated;
       allErrors = [...allErrors, ...data.errors];
@@ -239,9 +239,10 @@ export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?:
         onProgress(progress);
       }
     } else {
-      // This case should ideally not be hit if the edge function returns success: true
-      // but if it returns success: false with an error message, handle it.
-      throw new Error(data.error || 'حدث خطأ غير معروف أثناء معالجة الجزء.');
+      // If the edge function returns success: false, it means there was a specific error
+      console.error(`Client: Edge function reported error for chunk ${chunkIndex + 1}:`, data.error);
+      allErrors = [...allErrors, ...data.errors]; // Aggregate errors reported by the edge function
+      throw new Error(data.error || `حدث خطأ غير معروف أثناء معالجة الجزء ${chunkIndex + 1}.`);
     }
   }
 
