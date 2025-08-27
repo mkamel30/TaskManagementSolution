@@ -28,7 +28,8 @@ export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
   const { data, error } = await supabase
     .from('bakery_quotas')
     .select('*')
-    .order('quota_date', { ascending: false });
+    .order('quota_date', { ascending: false })
+    .limit(null); // <--- Added this line to fetch all records
 
   if (error) {
     console.error('Error fetching bakery quotas:', error);
