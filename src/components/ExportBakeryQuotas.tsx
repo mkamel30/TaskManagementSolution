@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { DatePicker } from './ui/date-picker';
-import { getPaginatedBakeryQuotas, getBakeryQuotaHistory } from '@/api/bakery-quotas';
+import { getAllBakeryQuotas, getBakeryQuotaHistory } from '@/api/bakery-quotas'; // Updated import
 import { utils, writeFile } from 'xlsx';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -24,10 +24,10 @@ export const ExportBakeryQuotas: React.FC = () => {
     const exportPromise = new Promise(async (resolve, reject) => {
       try {
         let filteredQuotas = [];
+        const allQuotas = await getAllBakeryQuotas(); // Fetch all quotas first
 
         if (exportType === 'all') {
-          const allQuotasResponse = await getPaginatedBakeryQuotas(1, Number.MAX_SAFE_INTEGER, '', 'quota_date', 'desc');
-          filteredQuotas = allQuotasResponse.data; // Corrected variable name here
+          filteredQuotas = allQuotas;
         } else if (exportType === 'dateRange') {
           if (!startDate || !endDate) {
             reject(new Error('يرجى تحديد تاريخ البدء وتاريخ الانتهاء'));
@@ -40,8 +40,7 @@ export const ExportBakeryQuotas: React.FC = () => {
           const adjustedEndDate = new Date(endDate);
           adjustedEndDate.setHours(23, 59, 59, 999);
 
-          const allQuotasResponse = await getPaginatedBakeryQuotas(1, Number.MAX_SAFE_INTEGER, '', 'quota_date', 'desc');
-          filteredQuotas = allQuotasResponse.data.filter(quota => {
+          filteredQuotas = allQuotas.filter(quota => {
             const quotaDate = new Date(quota.quota_date);
             return quotaDate >= startDate && quotaDate <= adjustedEndDate;
           });
@@ -51,8 +50,7 @@ export const ExportBakeryQuotas: React.FC = () => {
             reject(new Error('يرجى إدخال أكواد العملاء المراد تصديرها'));
             return;
           }
-          const allQuotasResponse = await getPaginatedBakeryQuotas(1, Number.MAX_SAFE_INTEGER, '', 'quota_date', 'desc');
-          filteredQuotas = allQuotasResponse.data.filter(quota => clientIds.includes(quota.client_id));
+          filteredQuotas = allQuotas.filter(quota => clientIds.includes(quota.client_id));
         }
 
         if (filteredQuotas.length === 0) {
