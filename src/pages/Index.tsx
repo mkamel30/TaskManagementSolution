@@ -53,23 +53,28 @@ const Index = () => {
   const initialTab = searchParams.get('tab') || 'tasks';
   const [activeTab, setActiveTab] = useState(initialTab);
 
+  console.log("Index.tsx render - activeTab:", activeTab);
+  console.log("Index.tsx render - searchParams:", searchParams.toString());
+
   // Effect to update URL when activeTab changes
   useEffect(() => {
+    console.log("Index.tsx useEffect [activeTab] - activeTab changed to:", activeTab);
     if (activeTab === 'tasks') {
       searchParams.delete('tab');
     } else {
       searchParams.set('tab', activeTab);
     }
+    console.log("Index.tsx useEffect [activeTab] - Setting searchParams to:", searchParams.toString());
     setSearchParams(searchParams, { replace: true }); // Use replace to avoid adding to history
   }, [activeTab, searchParams, setSearchParams]);
 
   // Effect to update activeTab when URL changes (e.g., from sidebar navigation)
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'tasks';
-    if (tabFromUrl !== activeTab) {
-      setActiveTab(tabFromUrl);
-    }
-  }, [searchParams, activeTab]);
+    console.log("Index.tsx useEffect [searchParams] - tabFromUrl:", tabFromUrl, "current activeTab:", activeTab);
+    // Unconditionally set activeTab to ensure sync with URL
+    setActiveTab(tabFromUrl);
+  }, [searchParams]); // Only depend on searchParams
 
 
   const { session } = useAuth();
