@@ -59,13 +59,12 @@ export const ImportBakeryQuotas: React.FC = () => {
         const firstRow = jsonData[0] || {};
         const columns = Object.keys(firstRow);
 
-        // Extract unique bakery codes using multiple possible column names
+        // Extract unique bakery codes using the exact column name
         const bakeryCodes = new Set<string>();
         jsonData.forEach((row: any) => {
-          // Try different possible column names for bakery code
-          const code = row['كود المخبز'] || row['BAKERY_CODE'] || row['bakery_code'] || row['كود'] || row['CODE'] || row['code'];
-          if (code?.toString().trim()) {
-            bakeryCodes.add(code.toString().trim());
+          const code = row['كود المخبز']?.toString().trim();
+          if (code) {
+            bakeryCodes.add(code);
           }
         });
 

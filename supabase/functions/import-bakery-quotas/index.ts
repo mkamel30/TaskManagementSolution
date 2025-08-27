@@ -65,15 +65,15 @@ serve(async (req) => {
       const globalRowIndex = startIndex + i + 1; // Calculate the actual row number in the full file
 
       try {
-        // Try different possible column names for bakery code
-        const client_id = row['كود المخبز'] || row['BAKERY_CODE'] || row['bakery_code'] || row['CODE'] || row['code'] || row['كود'] || row['code']?.toString().trim();
-        const client_name = row['اسم المخبز'] || row['BAKERY_NAME'] || row['bakery_name'] || row['NAME'] || row['name'] || row['اسم'] || row['name']?.toString().trim();
-        const new_quota_value = parseFloat(row['NEW_AVG_'] || row['NEW_AVG'] || row['AVERAGE'] || row['average'] || row['متوسط'] || row['قيمة'] || '0');
-        const raw_quota_date = row['TRUNC_A_OPE_DATE_'] || row['TRUNC_A_OPE_DATE'] || row['DATE'] || row['date'] || row['تاريخ'] || row['date'];
-        const discount_type = row['discount_type'] || row['DISCOUNT_TYPE'] || row['خصم'] || row['نوع الخصم'] || null;
+        // Use exact column names from your Excel file
+        const client_id = row['كود المخبز']?.toString().trim();
+        const client_name = row['اسم المخبز']?.toString().trim();
+        const new_quota_value = parseFloat(row['NEW_AVG_'] || '0');
+        const raw_quota_date = row['TRUNC_A_OPE_DATE_'];
+        const discount_type = row['discount_type']?.toString().trim() || null;
 
         if (!client_id || !client_name) {
-          excelErrors.push({ row: globalRowIndex, message: 'كود العميل أو اسم العميل مفقود' });
+          excelErrors.push({ row: globalRowIndex, message: 'كود المخبز أو اسم المخبز مفقود' });
           continue;
         }
 
