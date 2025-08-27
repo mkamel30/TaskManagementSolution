@@ -345,3 +345,12 @@ export const getBakeryQuotaEditStatsPerClientToday = async (): Promise<{ client_
   }
   return data || [];
 };
+
+export const getBakeryQuotaEditStatsPerClientYesterday = async (): Promise<{ client_id: string; edit_count: number }[]> => {
+  const { data, error } = await supabase.rpc('get_bakery_quota_edit_stats_per_client_yesterday');
+  if (error) {
+    console.error('Error fetching yesterday\'s bakery quota edits per client:', error);
+    throw error;
+  }
+  return data || [];
+};
