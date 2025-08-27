@@ -157,6 +157,15 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
   let oldQuotaValue: number | undefined;
   let newQuotaValue: number | undefined;
 
+  console.log('--- Debugging updateBakeryQuota History ---');
+  console.log('Existing Quota Value:', existingQuota.quota_value);
+  console.log('New Quota Value (from updates):', updates.quota_value);
+  console.log('Existing Notes:', existingQuota.notes);
+  console.log('New Notes (from updates):', updates.notes);
+  console.log('Existing Discount Type:', existingQuota.discount_type);
+  console.log('New Discount Type (from updates):', updates.discount_type);
+
+
   if (updates.quota_value !== undefined && updates.quota_value !== existingQuota.quota_value) {
     changes.push(`قيمة الحصة من ${existingQuota.quota_value} إلى ${updates.quota_value}`);
     oldQuotaValue = existingQuota.quota_value;
@@ -171,6 +180,7 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
 
   if (changes.length > 0) {
     const changeDescription = `تم تحديث: ${changes.join(', ')}.`;
+    console.log('Changes detected, attempting to insert history:', changeDescription);
     
     const { error: historyError } = await supabase.from('bakery_quota_history').insert({
       quota_id: id,
@@ -185,7 +195,11 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
 
     if (historyError) {
       console.error('Error creating bakery quota history:', historyError);
+    } else {
+      console.log('Successfully inserted history entry.');
     }
+  } else {
+    console.log('No relevant changes detected for history logging.');
   }
 
   return updatedQuota as BakeryQuota;
