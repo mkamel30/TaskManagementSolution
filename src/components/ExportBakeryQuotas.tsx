@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { DatePicker } from './ui/date-picker';
-import { getBakeryQuotas } from '@/api/bakery-quotas';
+import { getPaginatedBakeryQuotas } from '@/api/bakery-quotas'; // Changed import
 import { utils, writeFile } from 'xlsx';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -27,8 +27,9 @@ export const ExportBakeryQuotas: React.FC = () => {
         const adjustedEndDate = new Date(endDate);
         adjustedEndDate.setHours(23, 59, 59, 999);
 
-        // Fetch all quotas first
-        const allQuotas = await getBakeryQuotas();
+        // Fetch all quotas using getPaginatedBakeryQuotas with a very large limit
+        const allQuotasResponse = await getPaginatedBakeryQuotas(1, Number.MAX_SAFE_INTEGER, '', 'quota_date', 'desc');
+        const allQuotas = allQuotasResponse.data;
         
         // Filter by date range on the client-side
         const filteredQuotas = allQuotas.filter(quota => {
