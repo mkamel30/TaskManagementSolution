@@ -16,22 +16,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Search, Calendar, SortAsc, SortDesc } from 'lucide-react';
+import { PlusCircle, Search, SortAsc, SortDesc } from 'lucide-react';
 import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BakeryQuotaTable } from '@/components/BakeryQuotaTable';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { format } from 'date-fns';
-import { ar } from 'date-fns/locale';
 import { Pagination } from '@/components/Pagination';
-import { ExportBakeryQuotas } from '@/components/ExportBakeryQuotas'; // Import the new component
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
-const BakeryQuotasPage = () => {
+const BakeryQuotasPageContent = () => {
   const queryClient = useQueryClient();
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingQuota, setEditingQuota] = useState<BakeryQuota | null>(null);
@@ -50,7 +44,6 @@ const BakeryQuotasPage = () => {
   const { data: paginatedResponse, isLoading, isError } = useQuery({
     queryKey: ['bakeryQuotas', currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder],
     queryFn: () => getPaginatedBakeryQuotas(currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder),
-    enabled: !!submittedSearchQuery, // Only fetch if a search query is submitted
   });
 
   const bakeries = paginatedResponse?.data || [];
@@ -275,44 +268,29 @@ const BakeryQuotasPage = () => {
             </Button>
           </div>
 
-          <Tabs defaultValue="quotas" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
-              <TabsTrigger value="quotas">بيانات المخابز</TabsTrigger>
-              <TabsTrigger value="import">استيراد من Excel</TabsTrigger>
-              <TabsTrigger value="export">تصدير إلى Excel</TabsTrigger>
-            </TabsList>
-            <TabsContent value="quotas" className="space-y-4">
-              {isLoading ? (
-                <div className="text-center p-8">جاري تحميل بيانات المخابز...</div>
-              ) : isError ? (
-                <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز</div>
-              ) : (
-                <>
-                  <BakeryQuotaTable
-                    bakeries={bakeries}
-                    onEdit={handleEdit}
-                    onDelete={handleDeleteRequest}
-                    onAddRecord={handleAddNewRecordForClient}
-                    searchQuery={submittedSearchQuery}
-                  />
-                  {totalBakeriesCount > itemsPerPage && (
-                    <Pagination
-                      totalItems={totalBakeriesCount}
-                      itemsPerPage={itemsPerPage}
-                      currentPage={currentPage}
-                      onPageChange={setCurrentPage}
-                    />
-                  )}
-                </>
+          {isLoading ? (
+            <div className="text-center p-8">جاري تحميل بيانات المخابز...</div>
+          ) : isError ? (
+            <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز</div>
+          ) : (
+            <>
+              <BakeryQuotaTable
+                bakeries={bakeries}
+                onEdit={handleEdit}
+                onDelete={handleDeleteRequest}
+                onAddRecord={handleAddNewRecordForClient}
+                searchQuery={submittedSearchQuery}
+              />
+              {totalBakeriesCount > itemsPerPage && (
+                <Pagination
+                  totalItems={totalBakeriesCount}
+                  itemsPerPage={itemsPerPage}
+                  currentPage={currentPage}
+                  onPageChange={setCurrentPage}
+                />
               )}
-            </TabsContent>
-            <TabsContent value="import" className="space-y-4">
-              <ImportBakeryQuotas />
-            </TabsContent>
-            <TabsContent value="export" className="space-y-4">
-              <ExportBakeryQuotas />
-            </TabsContent>
-          </Tabs>
+            </>
+          )}
         </>
       ) : (
         <Card className="text-center py-16 text-gray-500 dark:text-gray-400">
@@ -339,4 +317,4 @@ const BakeryQuotasPage = () => {
   );
 };
 
-export default BakeryQuotasPage;
+export default BakeryQuotasPageContent;

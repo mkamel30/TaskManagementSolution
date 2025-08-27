@@ -24,7 +24,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportsPage from "@/pages/Reports";
 import { useAuth } from '@/components/AuthManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner'; // Import toast directly from sonner
+import { toast } from 'sonner';
+import BakeryQuotasPageContent from './BakeryQuotas'; // Renamed import
+import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
+import { ExportBakeryQuotas } from '@/components/ExportBakeryQuotas';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
@@ -41,7 +44,7 @@ const Index = () => {
   const [sortBy, setSortBy] = useState<'created_at' | 'reminder_at' | 'task_number'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [notifiedOverdueTasks, setNotifiedOverdueTasks] = useState<Set<string>>(new Set());
-
+  const [activeTab, setActiveTab] = useState('tasks'); // State to manage active tab
 
   const { session } = useAuth();
 
@@ -143,8 +146,6 @@ const Index = () => {
     statusUpdateMutation.mutate({ id, status });
   };
   
-  // Removed handleSignOut as it's now in Sidebar
-
   const uniqueResponsibleEmployees = useMemo(() => {
     const employees = new Set<string>();
     tasks?.forEach(task => {
@@ -309,12 +310,12 @@ const Index = () => {
 
   return (
     <div className="space-y-6">
-      {/* Removed header section as it's now in Sidebar */}
-
-      <Tabs defaultValue="tasks" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
+      <Tabs defaultValue="tasks" className="w-full" onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Increased grid-cols */}
           <TabsTrigger value="tasks">المهام</TabsTrigger>
           <TabsTrigger value="reports">التقارير</TabsTrigger>
+          <TabsTrigger value="bakery-quotas">حصص المخابز</TabsTrigger> {/* New Tab */}
+          <TabsTrigger value="bakery-tools">أدوات المخابز</TabsTrigger> {/* New Tab for Import/Export */}
         </TabsList>
         <TabsContent value="tasks" className="space-y-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -430,6 +431,13 @@ const Index = () => {
         </TabsContent>
         <TabsContent value="reports">
           <ReportsPage />
+        </TabsContent>
+        <TabsContent value="bakery-quotas"> {/* New Tab Content */}
+          <BakeryQuotasPageContent />
+        </TabsContent>
+        <TabsContent value="bakery-tools" className="space-y-6"> {/* New Tab Content for tools */}
+          <ImportBakeryQuotas />
+          <ExportBakeryQuotas />
         </TabsContent>
       </Tabs>
 

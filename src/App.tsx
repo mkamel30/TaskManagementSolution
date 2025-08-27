@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Footer } from "@/components/Footer";
 import { Sidebar } from "./components/Sidebar";
 import ReportsPage from "./pages/Reports";
-import BakeryQuotasPage from "./pages/BakeryQuotas";
+// import BakeryQuotasPage from "./pages/BakeryQuotas"; // Removed direct import
 
 function App() {
   return (
@@ -20,7 +20,7 @@ function App() {
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/bakery-quotas" element={<BakeryQuotasPage />} />
+              {/* <Route path="/bakery-quotas" element={<BakeryQuotasPage />} /> Removed direct route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

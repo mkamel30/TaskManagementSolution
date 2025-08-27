@@ -1,41 +1,59 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { DatePicker } from './ui/date-picker';
-import { getPaginatedBakeryQuotas, getBakeryQuotaHistory } from '@/api/bakery-quotas'; // Added getBakeryQuotaHistory
+import { getPaginatedBakeryQuotas, getBakeryQuotaHistory } from '@/api/bakery-quotas';
 import { utils, writeFile } from 'xlsx';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Label } from './ui/label';
+import { Input } from './ui/input';
+import { FileSpreadsheet } from 'lucide-react';
+
+type ExportType = 'all' | 'dateRange' | 'clientCodes';
 
 export const ExportBakeryQuotas: React.FC = () => {
+  const [exportType, setExportType] = useState<ExportType>('all');
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
+  const [clientCodesInput, setClientCodesInput] = useState('');
 
   const handleExport = async () => {
-    if (!startDate || !endDate) {
-      toast.error('يرجى تحديد تاريخ البدء وتاريخ الانتهاء');
-      return;
-    }
-    if (startDate > endDate) {
-      toast.error('تاريخ البدء يجب أن يكون قبل تاريخ الانتهاء');
-      return;
-    }
-
     const exportPromise = new Promise(async (resolve, reject) => {
       try {
-        const adjustedEndDate = new Date(endDate);
-        adjustedEndDate.setHours(23, 59, 59, 999);
+        let filteredQuotas = [];
 
-        // Fetch all quotas using getPaginatedBakeryQuotas with a very large limit
-        const allQuotasResponse = await getPaginatedBakeryQuotas(1, Number.MAX_SAFE_INTEGER, '', 'quota_date', 'desc');
-        const allQuotas = allQuotasResponse.data;
-        
-        // Filter by date range on the client-side
-        const filteredQuotas = allQuotas.filter(quota => {
-          const quotaDate = new Date(quota.quota_date);
-          return quotaDate >= startDate && quotaDate <= adjustedEndDate;
-        });
+        if (exportType === 'all') {
+          const allQuotasResponse = await getPaginatedBakeryQuotas(1, Number.MAX_SAFE_INTEGER, '', 'quota_date', 'desc');
+          filteredQuotas = allQuotas.data;
+        } else if (exportType === 'dateRange') {
+          if (!startDate || !endDate) {
+            reject(new Error('يرجى تحديد تاريخ البدء وتاريخ الانتهاء'));
+            return;
+          }
+          if (startDate > endDate) {
+            reject(new Error('تاريخ البدء يجب أن يكون قبل تاريخ الانتهاء'));
+            return;
+          }
+          const adjustedEndDate = new Date(endDate);
+          adjustedEndDate.setHours(23, 59, 59, 999);
+
+          const allQuotasResponse = await getPaginatedBakeryQuotas(1, Number.MAX_SAFE_INTEGER, '', 'quota_date', 'desc');
+          filteredQuotas = allQuotasResponse.data.filter(quota => {
+            const quotaDate = new Date(quota.quota_date);
+            return quotaDate >= startDate && quotaDate <= adjustedEndDate;
+          });
+        } else if (exportType === 'clientCodes') {
+          const clientIds = clientCodesInput.split(',').map(id => id.trim()).filter(Boolean);
+          if (clientIds.length === 0) {
+            reject(new Error('يرجى إدخال أكواد العملاء المراد تصديرها'));
+            return;
+          }
+          const allQuotasResponse = await getPaginatedBakeryQuotas(1, Number.MAX_SAFE_INTEGER, '', 'quota_date', 'desc');
+          filteredQuotas = allQuotasResponse.data.filter(quota => clientIds.includes(quota.client_id));
+        }
 
         if (filteredQuotas.length === 0) {
           resolve('no_data'); // Custom signal for no data
@@ -90,7 +108,7 @@ export const ExportBakeryQuotas: React.FC = () => {
         writeFile(workbook, 'BakeryQuotas_FullExport.xlsx');
 
         resolve('success');
-      } catch (error) {
+      } catch (error: any) {
         reject(error);
       }
     });
@@ -99,29 +117,65 @@ export const ExportBakeryQuotas: React.FC = () => {
       loading: 'جاري تصدير بيانات المخابز وسجل التغييرات...',
       success: (data) => {
         if (data === 'no_data') {
-          return 'لا توجد بيانات في النطاق الزمني المحدد.';
+          return 'لا توجد بيانات مطابقة لمعايير التصدير.';
         }
         return 'تم تصدير بيانات المخابز وسجل التغييرات بنجاح!';
       },
-      error: 'حدث خطأ أثناء التصدير.',
+      error: (err) => `حدث خطأ أثناء التصدير: ${err.message || 'خطأ غير معروف'}`,
     });
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-right">تصدير بيانات المخابز إلى Excel</CardTitle>
+        <CardTitle className="text-right flex items-center gap-2">
+          <FileSpreadsheet className="h-5 w-5" />
+          <span>تصدير بيانات المخابز إلى Excel</span>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col md:flex-row items-center gap-4">
-        <div className="flex flex-col gap-1 w-full">
-          <label className="text-sm font-medium">تاريخ البدء</label>
-          <DatePicker date={startDate} setDate={setStartDate} />
-        </div>
-        <div className="flex flex-col gap-1 w-full">
-          <label className="text-sm font-medium">تاريخ الانتهاء</label>
-          <DatePicker date={endDate} setDate={setEndDate} />
-        </div>
-        <Button onClick={handleExport} className="mt-auto self-end md:self-auto">تصدير</Button>
+      <CardContent className="flex flex-col gap-6">
+        <RadioGroup value={exportType} onValueChange={(value: ExportType) => setExportType(value)} className="flex flex-col space-y-3 text-right">
+          <div className="flex items-center space-x-2 justify-end">
+            <Label htmlFor="export-all">تصدير جميع البيانات</Label>
+            <RadioGroupItem value="all" id="export-all" />
+          </div>
+          <div className="flex items-center space-x-2 justify-end">
+            <Label htmlFor="export-date-range">تصدير حسب النطاق الزمني</Label>
+            <RadioGroupItem value="dateRange" id="export-date-range" />
+          </div>
+          {exportType === 'dateRange' && (
+            <div className="flex flex-col md:flex-row items-center gap-4 pr-8">
+              <div className="flex flex-col gap-1 w-full">
+                <label className="text-sm font-medium">تاريخ البدء</label>
+                <DatePicker date={startDate} setDate={setStartDate} />
+              </div>
+              <div className="flex flex-col gap-1 w-full">
+                <label className="text-sm font-medium">تاريخ الانتهاء</label>
+                <DatePicker date={endDate} setDate={setEndDate} />
+              </div>
+            </div>
+          )}
+          <div className="flex items-center space-x-2 justify-end">
+            <Label htmlFor="export-client-codes">تصدير أكواد عملاء محددة</Label>
+            <RadioGroupItem value="clientCodes" id="export-client-codes" />
+          </div>
+          {exportType === 'clientCodes' && (
+            <div className="pr-8">
+              <Label htmlFor="client-codes-input" className="block text-sm font-medium mb-1 text-right">
+                أدخل أكواد العملاء (مفصولة بفاصلة)
+              </Label>
+              <Input
+                id="client-codes-input"
+                value={clientCodesInput}
+                onChange={(e) => setClientCodesInput(e.target.value)}
+                placeholder="مثال: 123, 456, 789"
+                dir="ltr"
+              />
+            </div>
+          )}
+        </RadioGroup>
+
+        <Button onClick={handleExport} className="w-full md:w-auto self-end">تصدير</Button>
       </CardContent>
     </Card>
   );
