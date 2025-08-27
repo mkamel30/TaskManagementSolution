@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BakeryQuotaTable } from '@/components/BakeryQuotaTable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Pagination } from '@/components/Pagination';
+import { BakeryQuotaStats } from '@/components/BakeryQuotaStats'; // Import the new component
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
@@ -53,6 +54,10 @@ const BakeryQuotasPageContent = () => {
     mutationFn: (newQuota: BakeryQuotaFormData) => createBakeryQuota(newQuota),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsToday'] }); // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsWeek'] }); // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsMonth'] }); // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsPerClientToday'] }); // Invalidate stats
       showSuccess('تم إنشاء الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
       // If a new item is created, and there's an active search, re-run the search
@@ -70,6 +75,10 @@ const BakeryQuotasPageContent = () => {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotaHistory', variables.id] }); // Invalidate history for the specific quota
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsToday'] }); // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsWeek'] }); // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsMonth'] }); // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsPerClientToday'] }); // Invalidate stats
       showSuccess('تم تحديث الحصة التأمينية بنجاح');
       setIsFormDialogOpen(false);
       setEditingQuota(null);
@@ -88,6 +97,10 @@ const BakeryQuotasPageContent = () => {
     mutationFn: deleteBakeryQuota,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bakeryQuotas'] });
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsToday'] }); // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsWeek'] }); // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsMonth'] }); // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: ['bakeryQuotaStatsPerClientToday'] }); // Invalidate stats
       showSuccess('تم حذف الحصة التأمينية بنجاح');
       // If an item is deleted, and there's an active search, re-run the search
       if (submittedSearchQuery) {
@@ -205,6 +218,8 @@ const BakeryQuotasPageContent = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      <BakeryQuotaStats /> {/* New: Display the statistics cards */}
 
       <Card className="p-6">
         <CardHeader className="p-0 mb-4">

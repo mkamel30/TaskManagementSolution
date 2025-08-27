@@ -304,3 +304,40 @@ export const importBakeryQuotasFromExcel = async (
     errors: allErrors,
   };
 };
+
+// New API functions for statistics
+export const getBakeryQuotaEditStatsToday = async (): Promise<number> => {
+  const { data, error } = await supabase.rpc('get_bakery_quota_edit_stats_today');
+  if (error) {
+    console.error('Error fetching today\'s bakery quota edit stats:', error);
+    throw error;
+  }
+  return data?.[0]?.total_edits || 0;
+};
+
+export const getBakeryQuotaEditStatsWeek = async (): Promise<number> => {
+  const { data, error } = await supabase.rpc('get_bakery_quota_edit_stats_week');
+  if (error) {
+    console.error('Error fetching this week\'s bakery quota edit stats:', error);
+    throw error;
+  }
+  return data?.[0]?.total_edits || 0;
+};
+
+export const getBakeryQuotaEditStatsMonth = async (): Promise<number> => {
+  const { data, error } = await supabase.rpc('get_bakery_quota_edit_stats_month');
+  if (error) {
+    console.error('Error fetching this month\'s bakery quota edit stats:', error);
+    throw error;
+  }
+  return data?.[0]?.total_edits || 0;
+};
+
+export const getBakeryQuotaEditStatsPerClientToday = async (): Promise<{ client_name: string; edit_count: number }[]> => {
+  const { data, error } = await supabase.rpc('get_bakery_quota_edit_stats_per_client_today');
+  if (error) {
+    console.error('Error fetching today\'s bakery quota edits per client:', error);
+    throw error;
+  }
+  return data || [];
+};
