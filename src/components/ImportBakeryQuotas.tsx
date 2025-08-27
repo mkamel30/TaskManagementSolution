@@ -57,6 +57,8 @@ export const ImportBakeryQuotas: React.FC = () => {
     debugLogger.enable(); // Enable logging for this import
     debugLogger.info(`Starting import for file: ${file.name}`);
 
+    const loadingToast = toast.loading('جاري استيراد البيانات...'); // Declared here
+
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {

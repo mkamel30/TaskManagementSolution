@@ -22,6 +22,7 @@ export interface BakeryQuotaHistory {
   changed_at: string;
   notes?: string;
   trunc_a_ope_date_?: string;
+  user_email: string; // Added user_email
 }
 
 export interface ChunkProgress {
