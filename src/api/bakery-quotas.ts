@@ -199,17 +199,59 @@ export const deleteBakeryQuota = async (id: string) => {
   }
 };
 
-export const importBakeryQuotasFromExcel = async (excelData: any[]) => {
-  const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
-    body: { data: excelData },
-  });
+export const importBakeryQuotasFromExcel = async (excelData: any[], onProgress?: (progress: number) => void) => {
+  const CHUNK_SIZE = 100; // Process 100 records at a time
+  let totalProcessed = 0;
+  let totalCreated = 0;
+  let totalUpdated = 0;
+  let allErrors: { row: number; message: string }[] = [];
 
-  if (error) {
-    console.error('Error importing bakery quotas:', error);
-    throw error;
+  const totalChunks = Math.ceil(excelData.length / CHUNK_SIZE);
+
+  for (let i = 0; i < totalChunks; i++) {
+    const chunkIndex = i;
+    const startIndex = chunkIndex * CHUNK_SIZE;
+    const endIndex = Math.min(startIndex + CHUNK_SIZE, excelData.length);
+    const chunkData = excelData.slice(startIndex, endIndex);
+
+    console.log(`Processing chunk ${chunkIndex + 1}/${totalChunks} (records ${startIndex + 1}-${endIndex})`);
+
+    const { data, error } = await supabase.functions.invoke('import-bakery-quotas', {
+      body: { 
+        data: chunkData, 
+        chunkSize: CHUNK_SIZE, 
+        chunkIndex 
+      },
+    });
+
+    if (error) {
+      console.error(`Error processing chunk ${chunkIndex + 1}:`, error);
+      throw new Error(`فشل في معالجة الجزء ${chunkIndex + 1}: ${error.message}`);
+    }
+
+    if (data.success) {
+      totalProcessed = data.totalProcessed;
+      totalCreated += data.created;
+      totalUpdated += data.updated;
+      allErrors = [...allErrors, ...data.errors];
+      
+      // Update progress
+      const progress = (totalProcessed / excelData.length) * 100;
+      if (onProgress) {
+        onProgress(progress);
+      }
+    } else {
+      throw new Error(data.error || 'حدث خطأ غير معروف أثناء معالجة الجزء.');
+    }
   }
 
-  return data;
+  return {
+    total: excelData.length,
+    processed: totalProcessed,
+    created: totalCreated,
+    updated: totalUpdated,
+    errors: allErrors,
+  };
 };
 
 export const updateBakeryQuotaHistoryEntry = async (
