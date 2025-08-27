@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from './ui/label';
+import { Label } from '@/ui/label';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, X, Loader2, BarChart3 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, X, Loader2, BarChart3, Eye } from 'lucide-react';
 import { importBakeryQuotasFromExcel } from '@/api/bakery-quotas';
 import * as XLSX from 'xlsx';
 
@@ -25,7 +25,10 @@ export const ImportBakeryQuotas: React.FC = () => {
     totalRows: number;
     uniqueBakeryCodes: number;
     bakeryCodes: string[];
+    columns: string[];
+    sampleData: any[];
   } | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -52,12 +55,17 @@ export const ImportBakeryQuotas: React.FC = () => {
           return;
         }
 
+        // Get all column names from the first row
+        const firstRow = jsonData[0] || {};
+        const columns = Object.keys(firstRow);
+
         // Extract unique bakery codes
         const bakeryCodes = new Set<string>();
         jsonData.forEach((row: any) => {
-          const code = row['BAKERY_CODE']?.toString().trim();
-          if (code) {
-            bakeryCodes.add(code);
+          // Try different possible column names for bakery code
+          const code = row['BAKERY_CODE'] || row['bakery_code'] || row['كود المخبز'] || row['CODE'] || row['code'];
+          if (code?.toString().trim()) {
+            bakeryCodes.add(code.toString().trim());
           }
         });
 
@@ -65,6 +73,8 @@ export const ImportBakeryQuotas: React.FC = () => {
           totalRows: jsonData.length,
           uniqueBakeryCodes: bakeryCodes.size,
           bakeryCodes: Array.from(bakeryCodes),
+          columns,
+          sampleData: jsonData.slice(0, 3), // Show first 3 rows for debugging
         });
       } catch (parseError: any) {
         console.error('Error parsing Excel file:', parseError);
@@ -135,6 +145,7 @@ export const ImportBakeryQuotas: React.FC = () => {
     setFileInfo(null);
     setImportResult(null);
     setProgress(0);
+    setShowDebug(false);
     const fileInput = document.getElementById('file-input') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
   };
@@ -189,22 +200,80 @@ export const ImportBakeryQuotas: React.FC = () => {
             </div>
             
             {fileInfo && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                <div className="flex items-center gap-3">
-                  <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">إجمالي الصفوف</p>
-                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fileInfo.totalRows.toLocaleString()}</p>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center gap-3">
+                    <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">إجمالي الصفوف</p>
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fileInfo.totalRows.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <FileSpreadsheet className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">عدد المخابز الفريدة</p>
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fileInfo.uniqueBakeryCodes.toLocaleString()}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <FileSpreadsheet className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">عدد المخابز الفريدة</p>
-                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fileInfo.uniqueBakeryCodes.toLocaleString()}</p>
-                  </div>
+
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-right">الأعمدة الموجودة في الملف:</h4>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowDebug(!showDebug)}
+                    className="flex items-center gap-1"
+                  >
+                    <Eye size={14} />
+                    {showDebug ? 'إخفاء' : 'عرض'} التفاصيل
+                  </Button>
                 </div>
-              </div>
+
+                {showDebug && (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm font-medium text-right mb-2">الأعمدة:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {fileInfo.columns.map((col, index) => (
+                          <span key={index} className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded">
+                            {col}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm font-medium text-right mb-2">أمثلة على البيانات (الصفوف 1-3):</p>
+                      <div className="border rounded overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead className="bg-gray-100 dark:bg-gray-700">
+                            <tr>
+                              {fileInfo.columns.map((col, index) => (
+                                <th key={index} className="px-2 py-1 text-right border-b">
+                                  {col}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {fileInfo.sampleData.map((row, rowIndex) => (
+                              <tr key={rowIndex} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                {fileInfo.columns.map((col, colIndex) => (
+                                  <td key={colIndex} className="px-2 py-1 border-b text-right">
+                                    {row[col]?.toString() || ''}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="flex gap-2">
