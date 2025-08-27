@@ -53,28 +53,22 @@ const Index = () => {
   const initialTab = searchParams.get('tab') || 'tasks';
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  console.log("Index.tsx render - activeTab:", activeTab);
-  console.log("Index.tsx render - searchParams:", searchParams.toString());
-
-  // Effect to update URL when activeTab changes
+  // Effect to update URL when activeTab changes (e.g., by clicking internal TabsTrigger)
   useEffect(() => {
-    console.log("Index.tsx useEffect [activeTab] - activeTab changed to:", activeTab);
+    const newSearchParams = new URLSearchParams(searchParams);
     if (activeTab === 'tasks') {
-      searchParams.delete('tab');
+      newSearchParams.delete('tab');
     } else {
-      searchParams.set('tab', activeTab);
+      newSearchParams.set('tab', activeTab);
     }
-    console.log("Index.tsx useEffect [activeTab] - Setting searchParams to:", searchParams.toString());
-    setSearchParams(searchParams, { replace: true }); // Use replace to avoid adding to history
+    setSearchParams(newSearchParams, { replace: true });
   }, [activeTab, searchParams, setSearchParams]);
 
   // Effect to update activeTab when URL changes (e.g., from sidebar navigation)
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'tasks';
-    console.log("Index.tsx useEffect [searchParams] - tabFromUrl:", tabFromUrl, "current activeTab:", activeTab);
-    // Unconditionally set activeTab to ensure sync with URL
     setActiveTab(tabFromUrl);
-  }, [searchParams]); // Only depend on searchParams
+  }, [searchParams]);
 
 
   const { session } = useAuth();
@@ -333,7 +327,7 @@ const Index = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient, tasks]); // Depend on queryClient and tasks to find the task for action
+  }, [queryClient, tasks]);
 
 
   if (isLoading) return <div className="text-center p-8">جاري تحميل المهام...</div>;
