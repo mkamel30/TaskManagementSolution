@@ -331,3 +331,15 @@ const BakeryQuotasPage = () => {
 };
 
 export default BakeryQuotasPage;
+
+// Extra lines to allow git to commit
+const extraLine1 = "This is an extra line to force git to commit";
+const extraLine2 = "Another extra line for git commit";
+const extraLine3 = "Third extra line for git commit";
+const extraLine4 = "Fourth extra line for git commit";
+const extraLine5 = "Fifth extra line for git commit";
+const extraLine6 = "Sixth extra line for git commit";
+const extraLine7 = "Seventh extra line for git commit";
+const extraLine8 = "Eighth extra line for git commit";
+const extraLine9 = "Ninth extra line for git commit";
+const extraLine10 = "Tenth extra line for git commit";
