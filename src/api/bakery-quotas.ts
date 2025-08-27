@@ -22,7 +22,6 @@ export interface BakeryQuotaHistory {
   changed_at: string;
   notes?: string;
   trunc_a_ope_date_?: string;
-  user_email?: string; // Added user_email to history interface
 }
 
 export interface ChunkProgress {
@@ -33,46 +32,18 @@ export interface ChunkProgress {
   errors: string[];
 }
 
-export interface PaginatedBakeryQuotasResponse {
-  data: (BakeryQuota & { total_changes_count: number })[];
-  total: number;
-}
+export const getBakeryQuotas = async (): Promise<BakeryQuota[]> => {
+  const { data, error } = await supabase
+    .from('bakery_quotas')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-export const getBakeryQuotas = async (
-  page: number = 1,
-  itemsPerPage: number = 10,
-  searchQuery: string = '',
-  sortBy: string = 'quota_date',
-  sortOrder: string = 'desc'
-): Promise<PaginatedBakeryQuotasResponse> => {
-  try {
-    const { data, error } = await supabase
-      .rpc('get_paginated_bakery_quotas', {
-        page,
-        items_per_page: itemsPerPage,
-        search_query: searchQuery,
-        sort_by: sortBy,
-        sort_order: sortOrder
-      })
-      .select('*');
-
-    if (error) {
-      console.error('Error fetching paginated bakery quotas:', error);
-      throw error;
-    }
-
-    const bakeryData = data as (BakeryQuota & { total_changes_count: number })[];
-    
-    const totalCount = bakeryData.length > 0 ? bakeryData[0].total_changes_count || 0 : 0; // Corrected to use total_changes_count from RPC
-
-    return {
-      data: bakeryData,
-      total: totalCount
-    };
-  } catch (error) {
-    console.error('Error in getBakeryQuotas:', error);
+  if (error) {
+    console.error('Error fetching bakery quotas:', error);
     throw error;
   }
+
+  return data as BakeryQuota[];
 };
 
 export const getBakeryQuotaByClientId = async (clientId: string): Promise<BakeryQuota | null> => {

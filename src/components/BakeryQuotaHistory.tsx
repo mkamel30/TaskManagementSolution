@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import { showError, showSuccess } from '@/utils/toast';
 import { useAuth } from '@/components/AuthManager';
-import { BakeryQuotaHistory as BakeryQuotaHistoryType } from '@/api/bakery-quotas'; // Import the type
 
 interface BakeryQuotaHistoryProps {
   quotaId: string;
@@ -134,7 +133,7 @@ export const BakeryQuotaHistory: React.FC<BakeryQuotaHistoryProps> = ({ quotaId 
         <span>سجل التغييرات</span>
       </h4>
       <ul className="space-y-4 border-r-2 border-gray-200 dark:border-gray-700 pr-4 mr-1">
-        {history.map((entry: BakeryQuotaHistoryType) => ( // Cast entry to the imported type
+        {history.map((entry) => (
           <li key={entry.id} className="relative group">
             <div className="absolute -right-[26px] top-1 h-3 w-3 bg-gray-300 dark:bg-gray-600 rounded-full ring-4 ring-background" />
             <div className="flex justify-between items-start gap-2">

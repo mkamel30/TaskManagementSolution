@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Search, SortAsc, SortDesc } from 'lucide-react';
+import { PlusCircle, Search, Calendar, SortAsc, SortDesc } from 'lucide-react';
 import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
@@ -24,8 +24,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BakeryQuotaTable } from '@/components/BakeryQuotaTable';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
 import { Pagination } from '@/components/Pagination';
-import { ExportBakeryQuotas } from '@/components/ExportBakeryQuotas';
+import { ExportBakeryQuotas } from '@/components/ExportBakeryQuotas'; // Import the new component
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
@@ -33,7 +35,7 @@ const BakeryQuotasPage = () => {
   const queryClient = useQueryClient();
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingQuota, setEditingQuota] = useState<BakeryQuota | null>(null);
-  const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuotaFormData | null>(null); // Changed type here
+  const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuota | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [quotaIdToDelete, setQuotaIdToDelete] = useState<string | null>(null);
@@ -44,10 +46,9 @@ const BakeryQuotasPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const { data: paginatedData, isLoading, isError, error } = useQuery({
-    queryKey: ['bakeryQuotas', currentPage, itemsPerPage, searchQuery, sortBy, sortOrder],
-    queryFn: () => getBakeryQuotas(currentPage, itemsPerPage, searchQuery, sortBy, sortOrder),
-    placeholderData: (previousData) => previousData, // Keep previous data while fetching new page
+  const { data: allQuotas, isLoading, isError } = useQuery<BakeryQuota[]>({
+    queryKey: ['bakeryQuotas'],
+    queryFn: getBakeryQuotas,
   });
 
   const { data: historyCounts } = useQuery({
@@ -64,7 +65,7 @@ const BakeryQuotasPage = () => {
       });
       return countMap;
     },
-    enabled: !!paginatedData,
+    enabled: !!allQuotas,
   });
 
   const createMutation = useMutation({
@@ -110,7 +111,7 @@ const BakeryQuotasPage = () => {
   const handleFormSubmit = async (quotaData: BakeryQuotaFormData, existingQuotaId?: string) => {
     const loadingToast = showLoading('جاري حفظ الحصة التأمينية...');
     try {
-      if (editingQuota || addingRecordForQuota) { // Check for both editing and adding new record for existing client
+      if (editingQuota || existingQuotaId) {
         const idToUpdate = editingQuota?.id || existingQuotaId;
         if (idToUpdate) {
           await updateMutation.mutateAsync({ id: idToUpdate, updates: quotaData });
@@ -140,7 +141,9 @@ const BakeryQuotasPage = () => {
       quota_value: 0,
       quota_date: new Date().toISOString().split('T')[0],
       notes: quota.notes,
-      discount_type: quota.discount_type,
+      id: '',
+      created_at: '',
+      updated_at: '',
     });
     setEditingQuota(null);
     setIsFormDialogOpen(true);
@@ -167,15 +170,53 @@ const BakeryQuotasPage = () => {
     setIsFormDialogOpen(open);
   };
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const filteredAndSortedBakeries = useMemo(() => {
+    if (!allQuotas) return [];
+    
+    let currentBakeries = allQuotas;
 
-  const handleItemsPerPageChange = (value: string) => {
-    setItemsPerPage(Number(value));
-    setCurrentPage(1); // Reset to first page when changing items per page
-  };
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      currentBakeries = currentBakeries.filter(bakery => 
+        bakery.client_id.toLowerCase().includes(query) ||
+        bakery.client_name.toLowerCase().includes(query) ||
+        bakery.notes?.toLowerCase().includes(query)
+      );
+    }
+
+    currentBakeries.sort((a, b) => {
+      let valA: any = a[sortBy] || '';
+      let valB: any = b[sortBy] || '';
+
+      if (sortBy === 'quota_date') {
+        valA = new Date(valA).getTime();
+        valB = new Date(valB).getTime();
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return currentBakeries;
+  }, [allQuotas, searchQuery, sortBy, sortOrder]);
+
+  const bakeriesWithHistoryCount = useMemo(() => {
+    return filteredAndSortedBakeries.map(bakery => ({
+        ...bakery,
+        total_changes_count: historyCounts?.get(bakery.client_id) || 0,
+    }));
+  }, [filteredAndSortedBakeries, historyCounts]);
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = bakeriesWithHistoryCount.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(bakeriesWithHistoryCount.length / itemsPerPage);
+
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  const totalBakeries = allQuotas?.length || 0;
 
   const formInitialData = editingQuota || addingRecordForQuota || undefined;
   const dialogTitle = editingQuota 
@@ -183,12 +224,7 @@ const BakeryQuotasPage = () => {
     : (addingRecordForQuota ? `إضافة سجل جديد لـ ${addingRecordForQuota.client_name}` : 'إضافة مخبز جديد');
 
   if (isLoading) return <div className="text-center p-8">جاري تحميل بيانات المخابز...</div>;
-  if (isError) {
-    console.error('Error in BakeryQuotasPage:', error);
-    return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز: {error?.message}</div>;
-  }
-
-  const { data: bakeries, total } = paginatedData || { data: [], total: 0 };
+  if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب بيانات المخابز</div>;
 
   return (
     <div className="space-y-6">
@@ -196,7 +232,7 @@ const BakeryQuotasPage = () => {
         <h1 className="text-2xl font-bold">الحصص التأمينية للمخابز</h1>
         <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
           <DialogTrigger asChild>
-            <Button className="shrink-0 flex items-center gap-2" onClick={() => { setEditingQuota(null); setAddingRecordForQuota(null); setIsFormDialogOpen(true); }}>
+            <Button className="shrink-0 flex items-center gap-2" onClick={() => { setEditingQuota(null); setAddingRecordForQuota(null); }}>
               <PlusCircle className="h-4 w-4" />
               <span>إضافة مخبز جديد</span>
             </Button>
@@ -222,10 +258,7 @@ const BakeryQuotasPage = () => {
           <Input
             placeholder="بحث بالكود أو اسم المخبز..."
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1); // Reset to first page on new search
-            }}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="pr-10 text-right"
           />
         </div>
@@ -258,8 +291,7 @@ const BakeryQuotasPage = () => {
           <CardTitle className="text-right">نظرة عامة</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>إجمالي عدد المخابز: {total}</p>
-          <p className="text-sm text-muted-foreground">عرض {bakeries.length} من أصل {total} سجل</p>
+          <p>إجمالي عدد المخابز: {totalBakeries}</p>
         </CardContent>
       </Card>
 
@@ -271,34 +303,20 @@ const BakeryQuotasPage = () => {
         </TabsList>
         <TabsContent value="quotas" className="space-y-4">
           <BakeryQuotaTable
-            bakeries={bakeries}
+            bakeries={currentItems} // Use paginated data
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onAddRecord={handleAddNewRecordForClient}
             searchQuery={searchQuery}
           />
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">عدد السجلات لكل صفحة:</span>
-              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {totalPages > 1 && (
             <Pagination
-              totalItems={total}
+              totalItems={bakeriesWithHistoryCount.length}
               itemsPerPage={itemsPerPage}
               currentPage={currentPage}
-              onPageChange={handlePageChange}
+              onPageChange={paginate}
             />
-          </div>
+          )}
         </TabsContent>
         <TabsContent value="import" className="space-y-4">
           <ImportBakeryQuotas />
