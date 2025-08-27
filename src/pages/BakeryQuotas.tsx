@@ -54,7 +54,7 @@ const BakeryQuotasPage = () => {
   const { data: historyCounts } = useQuery({
     queryKey: ['bakeryQuotaHistoryCounts'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_client_history_counts');
+      const { data, error } = await supabase.rpc('get_client_history_counts').limit(null); // Added .limit(null) here
       if (error) {
         console.error("Error fetching history counts:", error);
         return new Map<string, number>();
