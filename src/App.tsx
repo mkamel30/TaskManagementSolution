@@ -19,9 +19,9 @@ function App() {
             path="/*"
             element={
               <ProtectedRoute>
-                <div className="flex min-h-screen bg-background">
+                <div className="flex min-h-screen bg-background" dir="rtl">
                   <Sidebar />
-                  <main className="flex-1 lg:mr-64 p-4" dir="rtl">
+                  <main className="flex-1 p-4">
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/reports" element={<ReportsPage />} />

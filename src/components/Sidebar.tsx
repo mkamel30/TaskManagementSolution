@@ -130,7 +130,7 @@ export const Sidebar: React.FC = () => {
       </Sheet>
 
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block fixed top-0 right-0 h-full w-64 border-l border-sidebar-border">
+      <div className="hidden lg:block sticky top-0 h-screen w-64 border-l border-sidebar-border flex-shrink-0">
         {sidebarContent}
       </div>
     </>
