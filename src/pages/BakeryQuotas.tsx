@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Pagination } from '@/components/Pagination';
 import { BakeryQuotaStats } from '@/components/bakery-quotas/BakeryQuotaStats';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const BakeryQuotasPageContent = () => {
   const {
