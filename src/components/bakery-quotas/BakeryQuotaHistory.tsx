@@ -145,7 +145,7 @@ export const BakeryQuotaHistory: React.FC<BakeryQuotaHistoryProps> = ({ quotaId 
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground text-right mt-1">
-                  تاريخ تطبيق العملية: {entry.trunc_a_ope_date_ ? format(new Date(entry.trunc_a_ope_date_), 'dd.MM.yyyy', { locale: ar }) : 'غير محدد'}
+                  تاريخ الحصة: {entry.trunc_a_ope_date_ ? format(new Date(entry.trunc_a_ope_date_), 'dd.MM.yyyy', { locale: ar }) : 'غير محدد'}
                 </p>
                 <p className="text-xs text-muted-foreground text-right mt-0.5">
                   تاريخ التسجيل بالنظام: بواسطة {entry.user_email} في {format(new Date(entry.changed_at), 'd MMMM yyyy, h:mm a', { locale: ar })}

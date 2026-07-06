@@ -78,7 +78,7 @@ export const QuotaHistoryRow: React.FC<QuotaHistoryRowProps> = ({ quotaId }) => 
                       <div className="absolute left-0 top-1 w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full ring-4 ring-background" />
                       <p className="font-medium text-sm text-right">{entry.change_description}</p>
                       <p className="text-xs text-muted-foreground text-right mt-1">
-                        تاريخ تطبيق العملية: {entry.trunc_a_ope_date_ ? format(new Date(entry.trunc_a_ope_date_), 'dd.MM.yyyy', { locale: ar }) : 'غير محدد'}
+                        تاريخ الحصة: {entry.trunc_a_ope_date_ ? format(new Date(entry.trunc_a_ope_date_), 'dd.MM.yyyy', { locale: ar }) : 'غير محدد'}
                       </p>
                       <p className="text-xs text-muted-foreground text-right mt-0.5">
                         تاريخ التسجيل بالنظام: بواسطة {entry.user_email} في {format(new Date(entry.changed_at), 'd MMMM yyyy, h:mm a', { locale: ar })}
