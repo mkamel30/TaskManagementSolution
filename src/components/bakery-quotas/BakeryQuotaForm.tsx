@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { BakeryQuota } from '@/api/bakery-quotas';
 import { BakeryQuotaHistory } from './BakeryQuotaHistory';
-import { Separator } from './ui/separator';
+import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { getBakeryQuotaByClientId } from '@/api/bakery-quotas';

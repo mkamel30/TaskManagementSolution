@@ -30,6 +30,60 @@ export const getTasks = async (): Promise<Task[]> => {
   return data as Task[];
 };
 
+export type PaginatedTasksResponse = {
+  data: Task[];
+  count: number;
+};
+
+export const getPaginatedTasks = async (
+  page: number,
+  itemsPerPage: number,
+  searchQuery: string,
+  statusFilter: string,
+  responsibleEmployeeFilter: string,
+  requestingPartyFilter: string,
+  sortBy: 'created_at' | 'reminder_at' | 'task_number',
+  sortOrder: 'asc' | 'desc'
+): Promise<PaginatedTasksResponse> => {
+  let query = supabase.rpc('get_tasks_with_creator_email', {}, { count: 'exact' });
+
+  if (searchQuery && searchQuery.trim() !== '') {
+    query = query.or(`required_action.ilike.%${searchQuery}%,notes.ilike.%${searchQuery}%,task_number.ilike.%${searchQuery}%`);
+  }
+
+  if (statusFilter && statusFilter !== 'all') {
+    query = query.eq('status', statusFilter);
+  }
+
+  if (responsibleEmployeeFilter && responsibleEmployeeFilter !== 'all') {
+    query = query.eq('responsible_employee', responsibleEmployeeFilter);
+  }
+
+  if (requestingPartyFilter && requestingPartyFilter !== 'all') {
+    query = query.eq('requesting_party', requestingPartyFilter);
+  }
+
+  if (sortBy) {
+    query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+  }
+
+  const from = (page - 1) * itemsPerPage;
+  const to = from + itemsPerPage - 1;
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    console.error('Error fetching paginated tasks:', error);
+    throw error;
+  }
+
+  return {
+    data: data as Task[] || [],
+    count: count || 0
+  };
+};
+
 export const getTasksByDateRange = async (startDate: string, endDate: string): Promise<Task[]> => {
   const { data, error } = await supabase
     .from('tasks')

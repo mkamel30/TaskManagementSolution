@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { Button } from './ui/button';
-import { DatePicker } from './ui/date-picker';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { getAllBakeryQuotas, getBakeryQuotaHistory } from '@/api/bakery-quotas'; // Updated import
 import { utils, writeFile } from 'xlsx';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Label } from './ui/label';
-import { Input } from './ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { FileSpreadsheet } from 'lucide-react';
 
 type ExportType = 'all' | 'dateRange' | 'clientCodes';

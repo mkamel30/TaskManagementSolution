@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Clock, Trash2, Edit, AlertTriangle, User, Building, Code, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Highlighter } from './Highlighter';
+import { Highlighter } from '../Highlighter';
 
 const statusIcons: Record<TaskStatus, React.ReactNode> = {
   'لم يتم': <Clock className="text-destructive" size={20} />,

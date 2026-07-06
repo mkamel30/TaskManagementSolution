@@ -1,9 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks';
+import React, { useState, useEffect } from 'react';
+import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskStatus } from '@/types/task';
-import { TaskList } from '@/components/TaskList';
-import { TaskForm } from '@/components/TaskForm';
+import { TaskList } from '@/components/tasks/TaskList';
+import { TaskForm } from '@/components/tasks/TaskForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -18,42 +17,59 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PlusCircle, Search } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { dismissToast, showError, showLoading, showSuccess } from '@/utils/toast';
+import { dismissToast, showError, showLoading } from '@/utils/toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportsPage from "@/pages/Reports";
-import { useAuth } from '@/components/AuthManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
 import BakeryQuotasPageContent from './BakeryQuotas';
-import { ImportBakeryQuotas } from '@/components/ImportBakeryQuotas';
-import { ExportBakeryQuotas } from '@/components/ExportBakeryQuotas';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-
-type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
+import { ImportBakeryQuotas } from '@/components/bakery-quotas/ImportBakeryQuotas';
+import { ExportBakeryQuotas } from '@/components/bakery-quotas/ExportBakeryQuotas';
+import { useSearchParams } from 'react-router-dom';
+import { Pagination } from '@/components/Pagination';
 
 const Index = () => {
-  const queryClient = useQueryClient();
-  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
-  const [taskIdToDelete, setTaskIdToDelete] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
-  const [filterResponsibleEmployee, setFilterResponsibleEmployee] = useState<string | 'all'>('all');
-  const [filterRequestingParty, setFilterRequestingParty] = useState<string | 'all'>('all');
-  const [sortBy, setSortBy] = useState<'created_at' | 'reminder_at' | 'task_number'>('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [notifiedOverdueTasks, setNotifiedOverdueTasks] = useState<Set<string>>(new Set());
-  
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const {
+    tasks,
+    totalTasksCount,
+    isLoading,
+    isError,
+    currentPage,
+    setCurrentPage,
+    itemsPerPage,
+    searchQuery,
+    setSearchQuery,
+    submittedSearchQuery,
+    setSubmittedSearchQuery,
+    isFormDialogOpen,
+    setIsFormDialogOpen,
+    editingTask,
+    setEditingTask,
+    isDeleteAlertOpen,
+    setDeleteAlertOpen,
+    taskIdToDelete,
+    setTaskIdToDelete,
+    filterStatus,
+    setFilterStatus,
+    filterResponsibleEmployee,
+    setFilterResponsibleEmployee,
+    filterRequestingParty,
+    setFilterRequestingParty,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
+    createMutation,
+    updateMutation,
+    deleteMutation,
+    statusUpdateMutation,
+    uniqueResponsibleEmployees,
+    uniqueRequestingParties,
+  } = useTasks();
 
-  // Initialize activeTab from URL search params, default to 'tasks'
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'tasks';
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  // Effect to update URL when activeTab changes (e.g., by clicking internal TabsTrigger)
   useEffect(() => {
     const newSearchParams = new URLSearchParams(searchParams);
     if (activeTab === 'tasks') {
@@ -64,70 +80,12 @@ const Index = () => {
     setSearchParams(newSearchParams, { replace: true });
   }, [activeTab, searchParams, setSearchParams]);
 
-  // Effect to update activeTab when URL changes (e.g., from sidebar navigation)
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'tasks';
     setActiveTab(tabFromUrl);
   }, [searchParams]);
 
-
-  const { session } = useAuth();
-
-  const { data: tasks, isLoading, isError } = useQuery<Task[]>({
-    queryKey: ['tasks'],
-    queryFn: getTasks
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (newTask: TaskFormData) => createTask(newTask),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      showSuccess('تم إنشاء المهمة بنجاح');
-      setIsFormDialogOpen(false);
-    },
-    onError: (error) => {
-      // Error toast is handled by the caller in handleFormSubmit
-      console.error(`خطأ في إنشاء المهمة: ${error.message}`);
-    }
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (variables: { id: string, updates: Partial<TaskFormData> }) => updateTask(variables.id, variables.updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      showSuccess('تم تحديث المهمة بنجاح');
-      setIsFormDialogOpen(false);
-      setEditingTask(null);
-    },
-    onError: (error) => {
-      // Error toast is handled by the caller in handleFormSubmit
-      console.error(`خطأ في تحديث المهمة: ${error.message}`);
-    }
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: deleteTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      showSuccess('تم حذف المهمة بنجاح');
-    },
-    onError: (error) => {
-      showError(`خطأ في حذف المهمة: ${error.message}`);
-    }
-  });
-  
-  const statusUpdateMutation = useMutation({
-    mutationFn: (variables: { id: string, status: Task['status'] }) => updateTask(variables.id, { status: variables.status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      showSuccess('تم تحديث حالة المهمة');
-    },
-    onError: (error) => {
-      showError(`خطأ في تحديث الحالة: ${error.message}`);
-    }
-  });
-
-  const handleFormSubmit = async (taskData: TaskFormData) => {
+  const handleFormSubmit = async (taskData: any) => {
     const loadingToast = showLoading('جاري حفظ المهمة...');
     try {
       if (editingTask) {
@@ -170,167 +128,7 @@ const Index = () => {
   const handleStatusChange = (id: string, status: Task['status']) => {
     statusUpdateMutation.mutate({ id, status });
   };
-  
-  const uniqueResponsibleEmployees = useMemo(() => {
-    const employees = new Set<string>();
-    tasks?.forEach(task => {
-      if (task.responsible_employee) employees.add(task.responsible_employee);
-    });
-    return Array.from(employees).sort();
-  }, [tasks]);
 
-  const uniqueRequestingParties = useMemo(() => {
-    const parties = new Set<string>();
-    tasks?.forEach(task => {
-      if (task.requesting_party) parties.add(task.requesting_party);
-    });
-    return Array.from(parties).sort();
-  }, [tasks]);
-
-  const filteredAndSortedTasks = useMemo(() => {
-    let currentTasks = tasks || [];
-
-    // Apply search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      currentTasks = currentTasks.filter(task =>
-        (task.task_number && task.task_number.toLowerCase().includes(query)) ||
-        task.required_action.toLowerCase().includes(query) ||
-        (task.notes && task.notes.toLowerCase().includes(query)) ||
-        (task.requesting_party && task.requesting_party.toLowerCase().includes(query)) ||
-        (task.responsible_employee && task.responsible_employee.toLowerCase().includes(query)) ||
-        (task.customer_code && task.customer_code.toLowerCase().includes(query))
-      );
-    }
-
-    // Apply status filter
-    if (filterStatus !== 'all') {
-      currentTasks = currentTasks.filter(task => task.status === filterStatus);
-    }
-
-    // Apply responsible employee filter
-    if (filterResponsibleEmployee !== 'all') {
-      currentTasks = currentTasks.filter(task => task.responsible_employee === filterResponsibleEmployee);
-    }
-
-    // Apply requesting party filter
-    if (filterRequestingParty !== 'all') {
-      currentTasks = currentTasks.filter(task => task.requesting_party === filterRequestingParty);
-    }
-
-    // Apply sorting
-    currentTasks.sort((a, b) => {
-      let valA: any, valB: any;
-
-      if (sortBy === 'created_at' || sortBy === 'reminder_at') {
-        valA = a[sortBy] ? new Date(a[sortBy]).getTime() : (sortBy === 'reminder_at' ? Infinity : -Infinity);
-        valB = b[sortBy] ? new Date(b[sortBy]).getTime() : (sortBy === 'reminder_at' ? Infinity : -Infinity);
-      } else { // task_number
-        valA = a[sortBy] || '';
-        valB = b[sortBy] || '';
-      }
-
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return currentTasks;
-  }, [tasks, searchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder]);
-
-  // Effect for overdue task notifications
-  useEffect(() => {
-    if (tasks && tasks.length > 0) {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0); // Compare dates only
-
-      tasks.forEach(task => {
-        if (task.status !== 'تم التنفيذ' && task.reminder_at) {
-          const reminderDate = new Date(task.reminder_at);
-          reminderDate.setHours(0, 0, 0, 0); // Compare dates only
-
-          if (reminderDate < now && !notifiedOverdueTasks.has(task.id)) {
-            toast.warning(`المهمة رقم ${task.task_number} متأخرة! الإجراء المطلوب: ${task.required_action}`, {
-              duration: 10000, // Keep toast visible for 10 seconds
-              action: {
-                label: 'عرض',
-                onClick: () => {
-                  setEditingTask(task);
-                  setIsFormDialogOpen(true);
-                },
-              },
-              id: `overdue-${task.id}` // Unique ID for the toast
-            });
-            setNotifiedOverdueTasks(prev => new Set(prev).add(task.id));
-          }
-        }
-      });
-    }
-  }, [tasks, notifiedOverdueTasks]);
-
-  // Effect for new comment notifications via Supabase Realtime
-  useEffect(() => {
-    const channel = supabase
-      .channel('public:comments') // Listen to changes in the 'comments' table
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'comments' },
-        async (payload) => {
-          const newComment = payload.new as { task_id: string; comment_text: string; user_id: string; };
-          
-          // Fetch task details to get task_number
-          const { data: taskData, error: taskError } = await supabase
-            .from('tasks')
-            .select('task_number')
-            .eq('id', newComment.task_id)
-            .single();
-
-          const taskNumber = taskData?.task_number || 'مهمة غير معروفة';
-          
-          let commenterEmail = 'مستخدم آخر';
-          try {
-            // Invoke the Edge Function to get the commenter's email
-            const { data: emailData, error: edgeFunctionError } = await supabase.functions.invoke('get-user-email', {
-              body: { user_id: newComment.user_id },
-            });
-
-            if (edgeFunctionError) {
-              console.error('Error invoking get-user-email edge function:', edgeFunctionError);
-            } else if (emailData && emailData.email) {
-              commenterEmail = emailData.email;
-            }
-          } catch (e) {
-            console.error('Exception calling get-user-email edge function:', e);
-          }
-
-          toast.info(`تعليق جديد على المهمة رقم ${taskNumber} من ${commenterEmail}: "${newComment.comment_text.substring(0, 50)}..."`, {
-            duration: 5000,
-            action: {
-              label: 'عرض المهمة',
-              onClick: () => {
-                // Find the task in the current list to set it for editing
-                const taskToEdit = tasks?.find(t => t.id === newComment.task_id);
-                if (taskToEdit) {
-                  setEditingTask(taskToEdit);
-                  setIsFormDialogOpen(true);
-                } else {
-                  showError('المهمة غير موجودة أو لم يتم تحميلها.');
-                }
-              },
-            },
-          });
-          queryClient.invalidateQueries({ queryKey: ['taskComments', newComment.task_id] }); // Invalidate comments for that task
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient, tasks]);
-
-
-  if (isLoading) return <div className="text-center p-8">جاري تحميل المهام...</div>;
   if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب المهام</div>;
 
   return (
@@ -344,14 +142,26 @@ const Index = () => {
         </TabsList>
         <TabsContent value="tasks" className="space-y-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="relative w-full md:flex-grow max-w-lg">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="flex gap-2 w-full md:flex-grow max-w-lg">
                 <Input
                   placeholder="بحث في المهام..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pr-10 text-right"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setSubmittedSearchQuery(searchQuery);
+                      setCurrentPage(1);
+                    }
+                  }}
+                  className="text-right pl-10"
                 />
+                <Button 
+                  onClick={() => { setSubmittedSearchQuery(searchQuery); setCurrentPage(1); }}
+                  className="flex items-center gap-2"
+                >
+                  <Search className="h-4 w-4" />
+                  <span>بحث</span>
+                </Button>
               </div>
               <Dialog open={isFormDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogTrigger asChild>
@@ -375,8 +185,8 @@ const Index = () => {
               </Dialog>
           </div>
 
-          {/* New Filtering and Sorting Controls */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" dir="rtl">
+          {/* Filtering and Sorting Controls */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" dir="rtl">
             <div>
               <label className="block text-sm font-medium mb-1 text-right">الحالة</label>
               <Select value={filterStatus} onValueChange={(value: TaskStatus | 'all') => setFilterStatus(value)}>
@@ -447,12 +257,22 @@ const Index = () => {
           </div>
 
           <TaskList
-            tasks={filteredAndSortedTasks}
+            tasks={tasks}
+            isLoading={isLoading}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onStatusChange={handleStatusChange}
-            searchQuery={searchQuery}
+            searchQuery={submittedSearchQuery}
           />
+          {totalTasksCount > itemsPerPage && (
+            <div className="mt-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(totalTasksCount / itemsPerPage)}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
         </TabsContent>
         <TabsContent value="reports">
           <ReportsPage />

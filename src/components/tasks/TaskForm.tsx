@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/select';
 import { Task, TaskStatus } from '@/types/task';
 import { TaskHistory } from './TaskHistory';
-import { Separator } from './ui/separator';
-import { DatePicker } from './ui/date-picker';
+import { Separator } from '@/components/ui/separator';
+import { DatePicker } from '@/components/ui/date-picker';
 import { TaskComments } from './TaskComments'; // Import TaskComments
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
