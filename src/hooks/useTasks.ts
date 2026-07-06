@@ -276,6 +276,8 @@ export const useTasks = () => {
     createMutation,
     updateMutation,
     deleteMutation,
-    statusUpdateMutation
+    statusUpdateMutation,
+    uniqueResponsibleEmployees,
+    uniqueRequestingParties
   };
 };
