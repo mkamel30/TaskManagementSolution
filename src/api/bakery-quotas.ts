@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
 
 export interface BakeryQuota {
   id: string;
@@ -174,6 +176,11 @@ export const updateBakeryQuota = async (id: string, updates: Partial<BakeryQuota
     changes.push(`قيمة الحصة من ${existingQuota.quota_value} إلى ${updates.quota_value}`);
     oldQuotaValue = existingQuota.quota_value;
     newQuotaValue = updates.quota_value;
+  }
+  if (updates.quota_date !== undefined && updates.quota_date !== existingQuota.quota_date) {
+    const oldDateStr = existingQuota.quota_date ? format(new Date(existingQuota.quota_date), 'dd.MM.yyyy', { locale: ar }) : 'فارغ';
+    const newDateStr = updates.quota_date ? format(new Date(updates.quota_date), 'dd.MM.yyyy', { locale: ar }) : 'فارغ';
+    changes.push(`تاريخ الحصة من "${oldDateStr}" إلى "${newDateStr}"`);
   }
   if (updates.notes !== undefined && updates.notes !== existingQuota.notes) {
     changes.push(`الملاحظات من "${existingQuota.notes || 'فارغ'}" إلى "${updates.notes || 'فارغ'}"`);
