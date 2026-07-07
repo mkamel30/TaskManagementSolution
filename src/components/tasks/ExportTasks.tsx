@@ -41,7 +41,7 @@ export const ExportTasks: React.FC = () => {
           'الجهة الطالبة': task.requesting_party,
           'الموظف المسؤول': task.responsible_employee,
           'كود العميل': task.customer_code,
-          'تاريخ الإنشاء': new Date(task.created_at).toLocaleString('ar-EG'),
+          'تاريخ الإنشاء': new Date(task.created_at).toLocaleDateString('ar-EG'),
         }));
 
         const worksheet = utils.json_to_sheet(dataToExport);
