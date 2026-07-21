@@ -200,25 +200,16 @@ export const getTaskHistory = async (taskId: string): Promise<TaskHistoryEntry[]
 };
 
 export const getComments = async (taskId: string): Promise<Comment[]> => {
-  const { data, error } = await supabase
-    .from('comments')
-    .select(`
-      *,
-      user:user_id ( email )
-    `)
-    .eq('task_id', taskId)
-    .order('created_at', { ascending: true });
+  const { data, error } = await supabase.rpc('get_comments_with_user', {
+    p_task_id: taskId,
+  });
 
   if (error) {
     console.error('Error fetching comments:', error);
     throw error;
   }
 
-  // Map the data to include user email directly
-  return data.map(comment => ({
-    ...comment,
-    user_email: comment.user?.email || 'Unknown User'
-  })) as Comment[];
+  return (data || []) as Comment[];
 };
 
 export const addComment = async (taskId: string, commentText: string) => {
