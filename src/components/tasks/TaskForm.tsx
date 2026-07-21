@@ -14,7 +14,8 @@ import { TaskHistory } from './TaskHistory';
 import { Separator } from '@/components/ui/separator';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TaskComments } from './TaskComments';
-import { useBranch, BranchOption } from '@/contexts/BranchContext';
+import { useBranch } from '@/contexts/BranchContext';
+import { RESPONSIBLE_EMPLOYEES } from '@/constants/employees';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
@@ -30,6 +31,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   onCancel 
 }) => {
   const { selectedBranch } = useBranch();
+  const [isCustomEmployee, setIsCustomEmployee] = useState<boolean>(() => {
+    return !!initialData?.responsible_employee && !RESPONSIBLE_EMPLOYEES.includes(initialData.responsible_employee as any);
+  });
   const [formData, setFormData] = useState<TaskFormData>({
     required_action: initialData?.required_action || '',
     notes: initialData?.notes || '',
@@ -118,11 +122,38 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         </div>
         <div>
           <label className="block text-sm font-medium mb-1 text-right">الموظف المسؤول</label>
-          <Input
-            value={formData.responsible_employee}
-            onChange={(e) => setFormData({...formData, responsible_employee: e.target.value})}
+          <Select
+            value={isCustomEmployee ? 'custom' : (formData.responsible_employee || '')}
+            onValueChange={(val) => {
+              if (val === 'custom') {
+                setIsCustomEmployee(true);
+                setFormData({...formData, responsible_employee: ''});
+              } else {
+                setIsCustomEmployee(false);
+                setFormData({...formData, responsible_employee: val});
+              }
+            }}
             dir="rtl"
-          />
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="اختر الموظف المسؤول" />
+            </SelectTrigger>
+            <SelectContent>
+              {RESPONSIBLE_EMPLOYEES.map((emp) => (
+                <SelectItem key={emp} value={emp}>{emp}</SelectItem>
+              ))}
+              <SelectItem value="custom">إدخال اسم آخر...</SelectItem>
+            </SelectContent>
+          </Select>
+          {isCustomEmployee && (
+            <Input
+              className="mt-2"
+              placeholder="أدخل اسم الموظف"
+              value={formData.responsible_employee}
+              onChange={(e) => setFormData({...formData, responsible_employee: e.target.value})}
+              dir="rtl"
+            />
+          )}
         </div>
       </div>
       

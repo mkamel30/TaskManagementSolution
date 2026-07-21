@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { toast } from 'sonner';
 import { useBranch } from '@/contexts/BranchContext';
+import { RESPONSIBLE_EMPLOYEES } from '@/constants/employees';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
@@ -53,7 +54,7 @@ export const useTasks = () => {
   });
 
   const uniqueResponsibleEmployees = useMemo(() => {
-    const employees = new Set<string>();
+    const employees = new Set<string>(RESPONSIBLE_EMPLOYEES);
     filterFieldsData?.forEach(item => {
       if (item.responsible_employee) employees.add(item.responsible_employee);
     });

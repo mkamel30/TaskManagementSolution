@@ -12,6 +12,7 @@ import { KPICards } from '@/components/tasks/KPICards';
 import { TaskLoadChart } from '@/components/tasks/TaskLoadChart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
+import { RESPONSIBLE_EMPLOYEES } from '@/constants/employees';
 
 const ReportsPage = () => {
   const [startDate, setStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
@@ -41,7 +42,7 @@ const ReportsPage = () => {
   });
 
   const uniqueResponsibleEmployees = useMemo(() => {
-    const employees = new Set<string>();
+    const employees = new Set<string>(RESPONSIBLE_EMPLOYEES);
     filterFieldsData?.forEach(item => {
       if (item.responsible_employee) employees.add(item.responsible_employee);
     });
