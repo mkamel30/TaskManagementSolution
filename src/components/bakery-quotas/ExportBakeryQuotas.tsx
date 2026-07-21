@@ -11,10 +11,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { FileSpreadsheet } from 'lucide-react';
+import { useBranch } from '@/contexts/BranchContext';
 
 type ExportType = 'all' | 'dateRange' | 'clientCodes';
 
 export const ExportBakeryQuotas: React.FC = () => {
+  const { selectedBranch } = useBranch();
   const [exportType, setExportType] = useState<ExportType>('all');
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -24,7 +26,7 @@ export const ExportBakeryQuotas: React.FC = () => {
     const exportPromise = new Promise(async (resolve, reject) => {
       try {
         let filteredQuotas = [];
-        const allQuotas = await getAllBakeryQuotas(); // Fetch all quotas first
+        const allQuotas = await getAllBakeryQuotas(selectedBranch); // Fetch all quotas first
 
         if (exportType === 'all') {
           filteredQuotas = allQuotas;

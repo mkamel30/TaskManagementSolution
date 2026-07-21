@@ -74,8 +74,10 @@ export const getPaginatedBakeryQuotas = async (
   };
 };
 
-export const getAllBakeryQuotas = async (): Promise<BakeryQuota[]> => {
-  const { data, error } = await supabase.rpc('get_all_bakery_quotas');
+export const getAllBakeryQuotas = async (branchName?: string): Promise<BakeryQuota[]> => {
+  const { data, error } = await supabase.rpc('get_all_bakery_quotas', {
+    p_branch: branchName || null,
+  });
 
   if (error) {
     console.error('Error fetching all bakery quotas:', error);

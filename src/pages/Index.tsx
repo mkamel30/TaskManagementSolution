@@ -129,8 +129,6 @@ const Index = () => {
     statusUpdateMutation.mutate({ id, status });
   };
 
-  if (isError) return <div className="text-center p-8 text-red-500">حدث خطأ أثناء جلب المهام</div>;
-
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -141,7 +139,13 @@ const Index = () => {
           <TabsTrigger value="bakery-tools">أدوات المخابز</TabsTrigger>
         </TabsList>
         <TabsContent value="tasks" className="space-y-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          {isError ? (
+            <div className="text-center p-8 text-red-500 font-medium bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+              حدث خطأ أثناء جلب المهام. يرجى محاولة إعادة التحميل.
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex gap-2 w-full md:flex-grow max-w-lg">
                 <Input
                   placeholder="بحث في المهام..."
@@ -272,6 +276,8 @@ const Index = () => {
                 onPageChange={setCurrentPage}
               />
             </div>
+          )}
+            </>
           )}
         </TabsContent>
         <TabsContent value="reports">
