@@ -14,4 +14,5 @@ export type Task = {
   created_at: string;
   updated_at: string;
   creator_email?: string;
+  branch_name?: string;
 };

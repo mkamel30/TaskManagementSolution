@@ -1,1 +1,746 @@
-{"types":"export type Json =\n  | string\n  | number\n  | boolean\n  | null\n  | { [key: string]: Json | undefined }\n  | Json[]\n\nexport type Database = {\n  // Allows to automatically instantiate createClient with right options\n  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)\n  __InternalSupabase: {\n    PostgrestVersion: \"13.0.4\"\n  }\n  public: {\n    Tables: {\n      bakery_quota_history: {\n        Row: {\n          change_description: string\n          changed_at: string | null\n          id: string\n          new_quota_value: number | null\n          notes: string | null\n          old_quota_value: number | null\n          quota_id: string | null\n          trunc_a_ope_date_: string | null\n          user_id: string\n        }\n        Insert: {\n          change_description: string\n          changed_at?: string | null\n          id?: string\n          new_quota_value?: number | null\n          notes?: string | null\n          old_quota_value?: number | null\n          quota_id?: string | null\n          trunc_a_ope_date_?: string | null\n          user_id: string\n        }\n        Update: {\n          change_description?: string\n          changed_at?: string | null\n          id?: string\n          new_quota_value?: number | null\n          notes?: string | null\n          old_quota_value?: number | null\n          quota_id?: string | null\n          trunc_a_ope_date_?: string | null\n          user_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"bakery_quota_history_quota_id_fkey\"\n            columns: [\"quota_id\"]\n            isOneToOne: false\n            referencedRelation: \"bakery_quotas\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      bakery_quotas: {\n        Row: {\n          client_id: string\n          client_name: string\n          created_at: string | null\n          discount_type: string | null\n          id: string\n          notes: string | null\n          quota_date: string\n          quota_value: number\n          updated_at: string | null\n        }\n        Insert: {\n          client_id: string\n          client_name: string\n          created_at?: string | null\n          discount_type?: string | null\n          id?: string\n          notes?: string | null\n          quota_date: string\n          quota_value: number\n          updated_at?: string | null\n        }\n        Update: {\n          client_id?: string\n          client_name?: string\n          created_at?: string | null\n          discount_type?: string | null\n          id?: string\n          notes?: string | null\n          quota_date?: string\n          quota_value?: number\n          updated_at?: string | null\n        }\n        Relationships: []\n      }\n      comments: {\n        Row: {\n          comment_text: string\n          created_at: string | null\n          id: string\n          task_id: string\n          user_id: string\n        }\n        Insert: {\n          comment_text: string\n          created_at?: string | null\n          id?: string\n          task_id: string\n          user_id: string\n        }\n        Update: {\n          comment_text?: string\n          created_at?: string | null\n          id?: string\n          task_id?: string\n          user_id?: string\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"comments_task_id_fkey\"\n            columns: [\"task_id\"]\n            isOneToOne: false\n            referencedRelation: \"tasks\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      daily_task_sequences: {\n        Row: {\n          last_value: number\n          sequence_date: string\n        }\n        Insert: {\n          last_value: number\n          sequence_date: string\n        }\n        Update: {\n          last_value?: number\n          sequence_date?: string\n        }\n        Relationships: []\n      }\n      email_schedules: {\n        Row: {\n          created_at: string | null\n          day_of_month: number | null\n          day_of_week: number | null\n          end_date: string | null\n          frequency: string\n          id: string\n          is_active: boolean | null\n          last_sent: string | null\n          name: string\n          next_send_date: string\n          reminder_minutes_before: number[] | null\n          require_approval: boolean | null\n          send_count: number | null\n          send_time: string\n          start_date: string\n          status: string\n          template_id: string | null\n          timezone: string\n          updated_at: string | null\n          user_id: string | null\n        }\n        Insert: {\n          created_at?: string | null\n          day_of_month?: number | null\n          day_of_week?: number | null\n          end_date?: string | null\n          frequency: string\n          id?: string\n          is_active?: boolean | null\n          last_sent?: string | null\n          name: string\n          next_send_date: string\n          reminder_minutes_before?: number[] | null\n          require_approval?: boolean | null\n          send_count?: number | null\n          send_time: string\n          start_date: string\n          status?: string\n          template_id?: string | null\n          timezone?: string\n          updated_at?: string | null\n          user_id?: string | null\n        }\n        Update: {\n          created_at?: string | null\n          day_of_month?: number | null\n          day_of_week?: number | null\n          end_date?: string | null\n          frequency?: string\n          id?: string\n          is_active?: boolean | null\n          last_sent?: string | null\n          name?: string\n          next_send_date?: string\n          reminder_minutes_before?: number[] | null\n          require_approval?: boolean | null\n          send_count?: number | null\n          send_time?: string\n          start_date?: string\n          status?: string\n          template_id?: string | null\n          timezone?: string\n          updated_at?: string | null\n          user_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"email_schedules_template_id_fkey\"\n            columns: [\"template_id\"]\n            isOneToOne: false\n            referencedRelation: \"email_templates\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      email_send_logs: {\n        Row: {\n          cc_recipients: string[] | null\n          created_at: string | null\n          error_message: string | null\n          id: string\n          provider: string | null\n          provider_message_id: string | null\n          schedule_id: string | null\n          sent_at: string | null\n          status: string\n          subject: string\n          template_id: string | null\n          to_recipients: string[]\n          user_id: string | null\n        }\n        Insert: {\n          cc_recipients?: string[] | null\n          created_at?: string | null\n          error_message?: string | null\n          id?: string\n          provider?: string | null\n          provider_message_id?: string | null\n          schedule_id?: string | null\n          sent_at?: string | null\n          status: string\n          subject: string\n          template_id?: string | null\n          to_recipients: string[]\n          user_id?: string | null\n        }\n        Update: {\n          cc_recipients?: string[] | null\n          created_at?: string | null\n          error_message?: string | null\n          id?: string\n          provider?: string | null\n          provider_message_id?: string | null\n          schedule_id?: string | null\n          sent_at?: string | null\n          status?: string\n          subject?: string\n          template_id?: string | null\n          to_recipients?: string[]\n          user_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"email_send_logs_schedule_id_fkey\"\n            columns: [\"schedule_id\"]\n            isOneToOne: false\n            referencedRelation: \"email_schedules\"\n            referencedColumns: [\"id\"]\n          },\n          {\n            foreignKeyName: \"email_send_logs_template_id_fkey\"\n            columns: [\"template_id\"]\n            isOneToOne: false\n            referencedRelation: \"email_templates\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      email_templates: {\n        Row: {\n          body: string\n          cc_recipients: string[] | null\n          created_at: string | null\n          id: string\n          name: string\n          subject: string\n          to_recipients: string[]\n          updated_at: string | null\n          user_id: string | null\n          version: number | null\n        }\n        Insert: {\n          body: string\n          cc_recipients?: string[] | null\n          created_at?: string | null\n          id?: string\n          name: string\n          subject: string\n          to_recipients: string[]\n          updated_at?: string | null\n          user_id?: string | null\n          version?: number | null\n        }\n        Update: {\n          body?: string\n          cc_recipients?: string[] | null\n          created_at?: string | null\n          id?: string\n          name?: string\n          subject?: string\n          to_recipients?: string[]\n          updated_at?: string | null\n          user_id?: string | null\n          version?: number | null\n        }\n        Relationships: []\n      }\n      profiles: {\n        Row: {\n          id: string\n          role: string | null\n          updated_at: string | null\n        }\n        Insert: {\n          id: string\n          role?: string | null\n          updated_at?: string | null\n        }\n        Update: {\n          id?: string\n          role?: string | null\n          updated_at?: string | null\n        }\n        Relationships: []\n      }\n      scheduled_emails: {\n        Row: {\n          body: string | null\n          cc: string | null\n          created_at: string\n          frequency: string | null\n          id: string\n          reminder: string | null\n          send_at: string\n          status: string | null\n          subject: string | null\n          template_name: string | null\n          to: string\n        }\n        Insert: {\n          body?: string | null\n          cc?: string | null\n          created_at?: string\n          frequency?: string | null\n          id?: string\n          reminder?: string | null\n          send_at: string\n          status?: string | null\n          subject?: string | null\n          template_name?: string | null\n          to: string\n        }\n        Update: {\n          body?: string | null\n          cc?: string | null\n          created_at?: string\n          frequency?: string | null\n          id?: string\n          reminder?: string | null\n          send_at?: string\n          status?: string | null\n          subject?: string | null\n          template_name?: string | null\n          to?: string\n        }\n        Relationships: []\n      }\n      task_history: {\n        Row: {\n          change_description: string\n          changed_at: string | null\n          id: string\n          task_id: string | null\n          user_id: string | null\n        }\n        Insert: {\n          change_description: string\n          changed_at?: string | null\n          id?: string\n          task_id?: string | null\n          user_id?: string | null\n        }\n        Update: {\n          change_description?: string\n          changed_at?: string | null\n          id?: string\n          task_id?: string | null\n          user_id?: string | null\n        }\n        Relationships: [\n          {\n            foreignKeyName: \"task_history_task_id_fkey\"\n            columns: [\"task_id\"]\n            isOneToOne: false\n            referencedRelation: \"tasks\"\n            referencedColumns: [\"id\"]\n          },\n        ]\n      }\n      tasks: {\n        Row: {\n          created_at: string | null\n          customer_code: string | null\n          file_paths: string[] | null\n          id: string\n          notes: string | null\n          reminder_at: string | null\n          requesting_party: string | null\n          required_action: string\n          responsible_employee: string | null\n          status: string\n          task_number: string\n          updated_at: string | null\n          user_id: string | null\n        }\n        Insert: {\n          created_at?: string | null\n          customer_code?: string | null\n          file_paths?: string[] | null\n          id?: string\n          notes?: string | null\n          reminder_at?: string | null\n          requesting_party?: string | null\n          required_action: string\n          responsible_employee?: string | null\n          status?: string\n          task_number: string\n          updated_at?: string | null\n          user_id?: string | null\n        }\n        Update: {\n          created_at?: string | null\n          customer_code?: string | null\n          file_paths?: string[] | null\n          id?: string\n          notes?: string | null\n          reminder_at?: string | null\n          requesting_party?: string | null\n          required_action?: string\n          responsible_employee?: string | null\n          status?: string\n          task_number?: string\n          updated_at?: string | null\n          user_id?: string | null\n        }\n        Relationships: []\n      }\n    }\n    Views: {\n      [_ in never]: never\n    }\n    Functions: {\n      get_all_bakery_quotas: {\n        Args: never\n        Returns: {\n          client_id: string\n          client_name: string\n          created_at: string | null\n          discount_type: string | null\n          id: string\n          notes: string | null\n          quota_date: string\n          quota_value: number\n          updated_at: string | null\n        }[]\n        SetofOptions: {\n          from: \"*\"\n          to: \"bakery_quotas\"\n          isOneToOne: false\n          isSetofReturn: true\n        }\n      }\n      get_bakery_quota_edit_stats_month: {\n        Args: never\n        Returns: {\n          total_edits: number\n        }[]\n      }\n      get_bakery_quota_edit_stats_per_client_today: {\n        Args: never\n        Returns: {\n          client_id: string\n          edit_count: number\n        }[]\n      }\n      get_bakery_quota_edit_stats_per_client_yesterday: {\n        Args: never\n        Returns: {\n          client_id: string\n          edit_count: number\n        }[]\n      }\n      get_bakery_quota_edit_stats_today: {\n        Args: never\n        Returns: {\n          total_edits: number\n        }[]\n      }\n      get_bakery_quota_edit_stats_week: {\n        Args: never\n        Returns: {\n          total_edits: number\n        }[]\n      }\n      get_bakery_quota_history_with_user: {\n        Args: { p_quota_id: string }\n        Returns: {\n          change_description: string\n          changed_at: string\n          id: string\n          new_quota_value: number\n          notes: string\n          old_quota_value: number\n          quota_id: string\n          trunc_a_ope_date_: string\n          user_email: string\n          user_id: string\n        }[]\n      }\n      get_bakery_quotas_with_operation_date: {\n        Args: never\n        Returns: {\n          client_id: string\n          client_name: string\n          created_at: string\n          id: string\n          notes: string\n          operation_date: string\n          quota_date: string\n          quota_value: number\n          updated_at: string\n        }[]\n      }\n      get_client_history_counts: {\n        Args: never\n        Returns: {\n          change_count: number\n          client_id: string\n        }[]\n      }\n      get_next_task_number_for_date: {\n        Args: { p_date: string }\n        Returns: number\n      }\n      get_paginated_bakery_quotas: {\n        Args: {\n          end_date?: string\n          items_per_page?: number\n          page?: number\n          search_query?: string\n          sort_by?: string\n          sort_order?: string\n          start_date?: string\n        }\n        Returns: Json\n      }\n      get_task_history_with_user: {\n        Args: { p_task_id: string }\n        Returns: {\n          change_description: string\n          changed_at: string\n          id: string\n          task_id: string\n          user_email: string\n          user_id: string\n        }[]\n      }\n      get_tasks_with_creator_email: {\n        Args: never\n        Returns: {\n          created_at: string\n          creator_email: string\n          customer_code: string\n          file_paths: string[]\n          id: string\n          notes: string\n          reminder_at: string\n          requesting_party: string\n          required_action: string\n          responsible_employee: string\n          status: string\n          task_number: string\n          updated_at: string\n          user_id: string\n        }[]\n      }\n      get_user_role: { Args: { user_id: string }; Returns: string }\n    }\n    Enums: {\n      [_ in never]: never\n    }\n    CompositeTypes: {\n      [_ in never]: never\n    }\n  }\n}\n\ntype DatabaseWithoutInternals = Omit<Database, \"__InternalSupabase\">\n\ntype DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, \"public\">]\n\nexport type Tables<\n  DefaultSchemaTableNameOrOptions extends\n    | keyof (DefaultSchema[\"Tables\"] & DefaultSchema[\"Views\"])\n    | { schema: keyof DatabaseWithoutInternals },\n  TableName extends DefaultSchemaTableNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"] &\n        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Views\"])\n    : never = never,\n> = DefaultSchemaTableNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"] &\n      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Views\"])[TableName] extends {\n      Row: infer R\n    }\n    ? R\n    : never\n  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema[\"Tables\"] &\n        DefaultSchema[\"Views\"])\n    ? (DefaultSchema[\"Tables\"] &\n        DefaultSchema[\"Views\"])[DefaultSchemaTableNameOrOptions] extends {\n        Row: infer R\n      }\n      ? R\n      : never\n    : never\n\nexport type TablesInsert<\n  DefaultSchemaTableNameOrOptions extends\n    | keyof DefaultSchema[\"Tables\"]\n    | { schema: keyof DatabaseWithoutInternals },\n  TableName extends DefaultSchemaTableNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"]\n    : never = never,\n> = DefaultSchemaTableNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"][TableName] extends {\n      Insert: infer I\n    }\n    ? I\n    : never\n  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema[\"Tables\"]\n    ? DefaultSchema[\"Tables\"][DefaultSchemaTableNameOrOptions] extends {\n        Insert: infer I\n      }\n      ? I\n      : never\n    : never\n\nexport type TablesUpdate<\n  DefaultSchemaTableNameOrOptions extends\n    | keyof DefaultSchema[\"Tables\"]\n    | { schema: keyof DatabaseWithoutInternals },\n  TableName extends DefaultSchemaTableNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"]\n    : never = never,\n> = DefaultSchemaTableNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions[\"schema\"]][\"Tables\"][TableName] extends {\n      Update: infer U\n    }\n    ? U\n    : never\n  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema[\"Tables\"]\n    ? DefaultSchema[\"Tables\"][DefaultSchemaTableNameOrOptions] extends {\n        Update: infer U\n      }\n      ? U\n      : never\n    : never\n\nexport type Enums<\n  DefaultSchemaEnumNameOrOptions extends\n    | keyof DefaultSchema[\"Enums\"]\n    | { schema: keyof DatabaseWithoutInternals },\n  EnumName extends DefaultSchemaEnumNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions[\"schema\"]][\"Enums\"]\n    : never = never,\n> = DefaultSchemaEnumNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions[\"schema\"]][\"Enums\"][EnumName]\n  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema[\"Enums\"]\n    ? DefaultSchema[\"Enums\"][DefaultSchemaEnumNameOrOptions]\n    : never\n\nexport type CompositeTypes<\n  PublicCompositeTypeNameOrOptions extends\n    | keyof DefaultSchema[\"CompositeTypes\"]\n    | { schema: keyof DatabaseWithoutInternals },\n  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {\n    schema: keyof DatabaseWithoutInternals\n  }\n    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions[\"schema\"]][\"CompositeTypes\"]\n    : never = never,\n> = PublicCompositeTypeNameOrOptions extends {\n  schema: keyof DatabaseWithoutInternals\n}\n  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions[\"schema\"]][\"CompositeTypes\"][CompositeTypeName]\n  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema[\"CompositeTypes\"]\n    ? DefaultSchema[\"CompositeTypes\"][PublicCompositeTypeNameOrOptions]\n    : never\n\nexport const Constants = {\n  public: {\n    Enums: {},\n  },\n} as const\n"}
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.4"
+  }
+  public: {
+    Tables: {
+      bakery_quota_history: {
+        Row: {
+          branch_name: string | null
+          change_description: string
+          changed_at: string | null
+          id: string
+          new_quota_value: number | null
+          notes: string | null
+          old_quota_value: number | null
+          quota_id: string | null
+          trunc_a_ope_date_: string | null
+          user_id: string
+        }
+        Insert: {
+          branch_name?: string | null
+          change_description: string
+          changed_at?: string | null
+          id?: string
+          new_quota_value?: number | null
+          notes?: string | null
+          old_quota_value?: number | null
+          quota_id?: string | null
+          trunc_a_ope_date_?: string | null
+          user_id: string
+        }
+        Update: {
+          branch_name?: string | null
+          change_description?: string
+          changed_at?: string | null
+          id?: string
+          new_quota_value?: number | null
+          notes?: string | null
+          old_quota_value?: number | null
+          quota_id?: string | null
+          trunc_a_ope_date_?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bakery_quota_history_quota_id_fkey"
+            columns: ["quota_id"]
+            isOneToOne: false
+            referencedRelation: "bakery_quotas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bakery_quotas: {
+        Row: {
+          branch_name: string
+          client_id: string
+          client_name: string
+          created_at: string | null
+          discount_type: string | null
+          id: string
+          notes: string | null
+          quota_date: string
+          quota_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          branch_name?: string
+          client_id: string
+          client_name: string
+          created_at?: string | null
+          discount_type?: string | null
+          id?: string
+          notes?: string | null
+          quota_date: string
+          quota_value: number
+          updated_at?: string | null
+        }
+        Update: {
+          branch_name?: string
+          client_id?: string
+          client_name?: string
+          created_at?: string | null
+          discount_type?: string | null
+          id?: string
+          notes?: string | null
+          quota_date?: string
+          quota_value?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      comments: {
+        Row: {
+          comment_text: string
+          created_at: string | null
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string | null
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string | null
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_task_sequences: {
+        Row: {
+          last_value: number
+          sequence_date: string
+        }
+        Insert: {
+          last_value: number
+          sequence_date: string
+        }
+        Update: {
+          last_value?: number
+          sequence_date?: string
+        }
+        Relationships: []
+      }
+      email_schedules: {
+        Row: {
+          created_at: string | null
+          day_of_month: number | null
+          day_of_week: number | null
+          end_date: string | null
+          frequency: string
+          id: string
+          is_active: boolean | null
+          last_sent: string | null
+          name: string
+          next_send_date: string
+          reminder_minutes_before: number[] | null
+          require_approval: boolean | null
+          send_count: number | null
+          send_time: string
+          start_date: string
+          status: string
+          template_id: string | null
+          timezone: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_month?: number | null
+          day_of_week?: number | null
+          end_date?: string | null
+          frequency: string
+          id?: string
+          is_active?: boolean | null
+          last_sent?: string | null
+          name: string
+          next_send_date: string
+          reminder_minutes_before?: number[] | null
+          require_approval?: boolean | null
+          send_count?: number | null
+          send_time: string
+          start_date: string
+          status?: string
+          template_id?: string | null
+          timezone?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_month?: number | null
+          day_of_week?: number | null
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          last_sent?: string | null
+          name?: string
+          next_send_date?: string
+          reminder_minutes_before?: number[] | null
+          require_approval?: boolean | null
+          send_count?: number | null
+          send_time?: string
+          start_date?: string
+          status?: string
+          template_id?: string | null
+          timezone?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_schedules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_send_logs: {
+        Row: {
+          cc_recipients: string[] | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          provider: string | null
+          provider_message_id: string | null
+          schedule_id: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          template_id: string | null
+          to_recipients: string[]
+          user_id: string | null
+        }
+        Insert: {
+          cc_recipients?: string[] | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          provider?: string | null
+          provider_message_id?: string | null
+          schedule_id?: string | null
+          sent_at?: string | null
+          status: string
+          subject: string
+          template_id?: string | null
+          to_recipients: string[]
+          user_id?: string | null
+        }
+        Update: {
+          cc_recipients?: string[] | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          provider?: string | null
+          provider_message_id?: string | null
+          schedule_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          template_id?: string | null
+          to_recipients?: string[]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_send_logs_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "email_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_logs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          body: string
+          cc_recipients: string[] | null
+          created_at: string | null
+          id: string
+          name: string
+          subject: string
+          to_recipients: string[]
+          updated_at: string | null
+          user_id: string | null
+          version: number | null
+        }
+        Insert: {
+          body: string
+          cc_recipients?: string[] | null
+          created_at?: string | null
+          id?: string
+          name: string
+          subject: string
+          to_recipients: string[]
+          updated_at?: string | null
+          user_id?: string | null
+          version?: number | null
+        }
+        Update: {
+          body?: string
+          cc_recipients?: string[] | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          subject?: string
+          to_recipients?: string[]
+          updated_at?: string | null
+          user_id?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          branch_name: string | null
+          id: string
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          branch_name?: string | null
+          id: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          branch_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      scheduled_emails: {
+        Row: {
+          body: string | null
+          cc: string | null
+          created_at: string
+          frequency: string | null
+          id: string
+          reminder: string | null
+          send_at: string
+          status: string | null
+          subject: string | null
+          template_name: string | null
+          to: string
+        }
+        Insert: {
+          body?: string | null
+          cc?: string | null
+          created_at?: string
+          frequency?: string | null
+          id?: string
+          reminder?: string | null
+          send_at: string
+          status?: string | null
+          subject?: string | null
+          template_name?: string | null
+          to: string
+        }
+        Update: {
+          body?: string | null
+          cc?: string | null
+          created_at?: string
+          frequency?: string | null
+          id?: string
+          reminder?: string | null
+          send_at?: string
+          status?: string | null
+          subject?: string | null
+          template_name?: string | null
+          to?: string
+        }
+        Relationships: []
+      }
+      task_history: {
+        Row: {
+          change_description: string
+          changed_at: string | null
+          id: string
+          task_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          change_description: string
+          changed_at?: string | null
+          id?: string
+          task_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          change_description?: string
+          changed_at?: string | null
+          id?: string
+          task_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_history_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          branch_name: string
+          created_at: string | null
+          customer_code: string | null
+          file_paths: string[] | null
+          id: string
+          notes: string | null
+          reminder_at: string | null
+          requesting_party: string | null
+          required_action: string
+          responsible_employee: string | null
+          status: string
+          task_number: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          branch_name?: string
+          created_at?: string | null
+          customer_code?: string | null
+          file_paths?: string[] | null
+          id?: string
+          notes?: string | null
+          reminder_at?: string | null
+          requesting_party?: string | null
+          required_action: string
+          responsible_employee?: string | null
+          status?: string
+          task_number: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          branch_name?: string
+          created_at?: string | null
+          customer_code?: string | null
+          file_paths?: string[] | null
+          id?: string
+          notes?: string | null
+          reminder_at?: string | null
+          requesting_party?: string | null
+          required_action?: string
+          responsible_employee?: string | null
+          status?: string
+          task_number?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      get_all_bakery_quotas: {
+        Args: never
+        Returns: {
+          branch_name: string
+          client_id: string
+          client_name: string
+          created_at: string | null
+          discount_type: string | null
+          id: string
+          notes: string | null
+          quota_date: string
+          quota_value: number
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "bakery_quotas"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_bakery_quota_edit_stats_month: {
+        Args: never
+        Returns: {
+          total_edits: number
+        }[]
+      }
+      get_bakery_quota_edit_stats_per_client_today: {
+        Args: never
+        Returns: {
+          client_id: string
+          edit_count: number
+        }[]
+      }
+      get_bakery_quota_edit_stats_per_client_yesterday: {
+        Args: never
+        Returns: {
+          client_id: string
+          edit_count: number
+        }[]
+      }
+      get_bakery_quota_edit_stats_today: {
+        Args: never
+        Returns: {
+          total_edits: number
+        }[]
+      }
+      get_bakery_quota_edit_stats_week: {
+        Args: never
+        Returns: {
+          total_edits: number
+        }[]
+      }
+      get_bakery_quota_history_with_user: {
+        Args: { p_quota_id: string }
+        Returns: {
+          change_description: string
+          changed_at: string
+          id: string
+          new_quota_value: number
+          notes: string
+          old_quota_value: number
+          quota_id: string
+          trunc_a_ope_date_: string
+          user_email: string
+          user_id: string
+        }[]
+      }
+      get_bakery_quotas_with_operation_date: {
+        Args: never
+        Returns: {
+          client_id: string
+          client_name: string
+          created_at: string
+          id: string
+          notes: string
+          operation_date: string
+          quota_date: string
+          quota_value: number
+          updated_at: string
+        }[]
+      }
+      get_client_history_counts: {
+        Args: never
+        Returns: {
+          change_count: number
+          client_id: string
+        }[]
+      }
+      get_next_task_number_for_date: {
+        Args: { p_date: string }
+        Returns: number
+      }
+      get_paginated_bakery_quotas: {
+        Args: {
+          end_date?: string
+          items_per_page?: number
+          p_branch?: string
+          page?: number
+          search_query?: string
+          sort_by?: string
+          sort_order?: string
+          start_date?: string
+        }
+        Returns: Json
+      }
+      get_task_history_with_user: {
+        Args: { p_task_id: string }
+        Returns: {
+          change_description: string
+          changed_at: string
+          id: string
+          task_id: string
+          user_email: string
+          user_id: string
+        }[]
+      }
+      get_tasks_with_creator_email: {
+        Args: never
+        Returns: {
+          branch_name: string
+          created_at: string
+          creator_email: string
+          customer_code: string
+          file_paths: string[]
+          id: string
+          notes: string
+          reminder_at: string
+          requesting_party: string
+          required_action: string
+          responsible_employee: string
+          status: string
+          task_number: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      get_user_role: { Args: { user_id: string }; Returns: string }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

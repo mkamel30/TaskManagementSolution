@@ -43,9 +43,14 @@ export const getPaginatedTasks = async (
   responsibleEmployeeFilter: string,
   requestingPartyFilter: string,
   sortBy: 'created_at' | 'reminder_at' | 'task_number',
-  sortOrder: 'asc' | 'desc'
+  sortOrder: 'asc' | 'desc',
+  branchFilter?: string
 ): Promise<PaginatedTasksResponse> => {
   let query = supabase.rpc('get_tasks_with_creator_email', {}, { count: 'exact' });
+
+  if (branchFilter && branchFilter !== 'الكل') {
+    query = query.eq('branch_name', branchFilter);
+  }
 
   if (searchQuery && searchQuery.trim() !== '') {
     query = query.or(`required_action.ilike.%${searchQuery}%,notes.ilike.%${searchQuery}%,task_number.ilike.%${searchQuery}%`);

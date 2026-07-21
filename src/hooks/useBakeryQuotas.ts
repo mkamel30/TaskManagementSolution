@@ -3,11 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getPaginatedBakeryQuotas, createBakeryQuota, updateBakeryQuota, deleteBakeryQuota } from '@/api/bakery-quotas';
 import { BakeryQuota } from '@/api/bakery-quotas';
 import { showSuccess, showError } from '@/utils/toast';
+import { useBranch } from '@/contexts/BranchContext';
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
 export const useBakeryQuotas = () => {
   const queryClient = useQueryClient();
+  const { selectedBranch } = useBranch();
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingQuota, setEditingQuota] = useState<BakeryQuota | null>(null);
   const [addingRecordForQuota, setAddingRecordForQuota] = useState<BakeryQuotaFormData | null>(null);
@@ -27,8 +29,8 @@ export const useBakeryQuotas = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const { data: paginatedResponse, isLoading, isError } = useQuery({
-    queryKey: ['bakeryQuotas', currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder, startDate, endDate],
-    queryFn: () => getPaginatedBakeryQuotas(currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder, startDate, endDate),
+    queryKey: ['bakeryQuotas', currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder, startDate, endDate, selectedBranch],
+    queryFn: () => getPaginatedBakeryQuotas(currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder, startDate, endDate, selectedBranch),
   });
 
   const bakeries = paginatedResponse?.data || [];

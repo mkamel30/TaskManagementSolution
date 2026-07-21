@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu, ListTodo, BarChart3, LogOut, Building, Wrench } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { BranchSelector } from '@/components/BranchSelector';
 import { useAuth } from '@/components/AuthManager';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -83,8 +84,9 @@ export const Sidebar: React.FC = () => {
 
   const sidebarContent = (
     <div className="flex h-full max-h-screen flex-col gap-2 bg-sidebar-background text-sidebar-foreground">
-      <div className="flex h-14 items-center border-b border-sidebar-border px-4 lg:h-[60px] lg:px-6">
-        <Logo className="h-8 w-auto" />
+      <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4 lg:h-[60px] lg:px-4">
+        <Logo className="h-7 w-auto" />
+        <BranchSelector />
       </div>
       <div className="flex-1 overflow-auto py-2">
         <nav className="grid items-start px-2 text-sm font-medium lg:px-4 gap-1">

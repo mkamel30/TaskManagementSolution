@@ -34,6 +34,7 @@ export const ExportTasks: React.FC = () => {
 
         const dataToExport = tasks.map(task => ({
           'رقم المهمة': task.task_number,
+          'الفرع': task.branch_name || 'الجيش',
           'الإجراء المطلوب': task.required_action,
           'ملاحظات': task.notes,
           'الحالة': task.status,

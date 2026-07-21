@@ -46,8 +46,9 @@ export const getPaginatedBakeryQuotas = async (
   searchQuery: string,
   sortBy: string,
   sortOrder: string,
-  startDate?: Date, // New parameter
-  endDate?: Date    // New parameter
+  startDate?: Date,
+  endDate?: Date,
+  branchName?: string
 ): Promise<PaginatedBakeryQuotasResponse> => {
   const { data, error } = await supabase.rpc('get_paginated_bakery_quotas', {
     page,
@@ -55,8 +56,9 @@ export const getPaginatedBakeryQuotas = async (
     search_query: searchQuery,
     sort_by: sortBy,
     sort_order: sortOrder,
-    start_date: startDate?.toISOString().split('T')[0], // Format date for RPC
-    end_date: endDate?.toISOString().split('T')[0],     // Format date for RPC
+    start_date: startDate?.toISOString().split('T')[0],
+    end_date: endDate?.toISOString().split('T')[0],
+    p_branch: branchName || null,
   });
 
   if (error) {

@@ -3,6 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { BakeryQuota } from '@/api/bakery-quotas';
 import { BakeryQuotaHistory } from './BakeryQuotaHistory';
 import { Separator } from '@/components/ui/separator';
@@ -11,11 +18,12 @@ import { ar } from 'date-fns/locale';
 import { getBakeryQuotaByClientId } from '@/api/bakery-quotas';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
+import { useBranch } from '@/contexts/BranchContext';
 
 type BakeryQuotaFormData = Omit<BakeryQuota, 'id' | 'created_at' | 'updated_at'>;
 
 interface BakeryQuotaFormProps {
-  initialData?: BakeryQuota | BakeryQuotaFormData; // Updated type here
+  initialData?: BakeryQuota | BakeryQuotaFormData;
   onSubmit: (quota: BakeryQuotaFormData, existingQuotaId?: string) => Promise<void>;
   onCancel: () => void;
 }
@@ -25,7 +33,8 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
   onSubmit, 
   onCancel 
 }) => {
-  const isEditing = !!(initialData as BakeryQuota)?.id; // Cast to BakeryQuota for id check
+  const { selectedBranch } = useBranch();
+  const isEditing = !!(initialData as BakeryQuota)?.id;
   const isAddingForExistingClient = !!initialData && !isEditing;
 
   const [formData, setFormData] = useState<BakeryQuotaFormData>({
@@ -34,7 +43,8 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
     quota_value: isAddingForExistingClient ? 0 : (initialData?.quota_value || 0),
     quota_date: isAddingForExistingClient ? new Date().toISOString().split('T')[0] : (initialData?.quota_date ? new Date(initialData.quota_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
     notes: initialData?.notes || '',
-    discount_type: initialData?.discount_type || '', // New: Initialize discount_type
+    discount_type: initialData?.discount_type || '',
+    branch_name: initialData?.branch_name || (selectedBranch !== 'الكل' ? selectedBranch : 'الجيش'),
   });
   const [previousQuotaValue, setPreviousQuotaValue] = useState<number | null>(null);
   const [isFetchingPreviousQuota, setIsFetchingPreviousQuota] = useState(false);
@@ -175,14 +185,32 @@ export const BakeryQuotaForm: React.FC<BakeryQuotaFormProps> = ({
         </div>
       </div>
 
-      <div>
-        <Label className="block text-sm font-medium mb-1 text-right">تاريخ الحصة (dd.mm.yyyy)</Label>
-        <Input
-          type="date"
-          value={formData.quota_date}
-          onChange={(e) => handleInputChange('quota_date', e.target.value)}
-          required
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label className="block text-sm font-medium mb-1 text-right">تاريخ الحصة (dd.mm.yyyy)</Label>
+          <Input
+            type="date"
+            value={formData.quota_date}
+            onChange={(e) => handleInputChange('quota_date', e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <Label className="block text-sm font-medium mb-1 text-right">الفرع</Label>
+          <Select
+            value={formData.branch_name || 'الجيش'}
+            onValueChange={(val) => handleInputChange('branch_name', val)}
+            dir="rtl"
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="اختر الفرع" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="الجيش">فرع الجيش</SelectItem>
+              <SelectItem value="المعادي">فرع المعادي</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div>

@@ -5,11 +5,13 @@ import { Task, TaskStatus } from '@/types/task';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { toast } from 'sonner';
+import { useBranch } from '@/contexts/BranchContext';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
 export const useTasks = () => {
   const queryClient = useQueryClient();
+  const { selectedBranch } = useBranch();
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   
@@ -32,8 +34,8 @@ export const useTasks = () => {
 
   // Paginated tasks query
   const { data: paginatedResponse, isLoading, isError } = useQuery({
-    queryKey: ['tasks', currentPage, itemsPerPage, submittedSearchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder],
-    queryFn: () => getPaginatedTasks(currentPage, itemsPerPage, submittedSearchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder)
+    queryKey: ['tasks', currentPage, itemsPerPage, submittedSearchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder, selectedBranch],
+    queryFn: () => getPaginatedTasks(currentPage, itemsPerPage, submittedSearchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder, selectedBranch)
   });
 
   const tasks = paginatedResponse?.data || [];

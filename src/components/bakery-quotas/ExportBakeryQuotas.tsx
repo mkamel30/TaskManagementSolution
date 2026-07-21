@@ -61,6 +61,7 @@ export const ExportBakeryQuotas: React.FC = () => {
         const mainQuotasDataToExport = filteredQuotas.map(quota => ({
           'كود العميل': quota.client_id,
           'اسم العميل': quota.client_name,
+          'الفرع': quota.branch_name || 'الجيش',
           'قيمة الحصة': quota.quota_value,
           'تاريخ الحصة': format(new Date(quota.quota_date), 'dd.MM.yyyy', { locale: ar }),
           'نوع الخصم': quota.discount_type || '',

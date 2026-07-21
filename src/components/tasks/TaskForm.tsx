@@ -13,7 +13,8 @@ import { Task, TaskStatus } from '@/types/task';
 import { TaskHistory } from './TaskHistory';
 import { Separator } from '@/components/ui/separator';
 import { DatePicker } from '@/components/ui/date-picker';
-import { TaskComments } from './TaskComments'; // Import TaskComments
+import { TaskComments } from './TaskComments';
+import { useBranch, BranchOption } from '@/contexts/BranchContext';
 
 type TaskFormData = Omit<Task, 'id' | 'user_id' | 'updated_at' | 'task_number' | 'creator_email'>;
 
@@ -28,6 +29,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   onSubmit, 
   onCancel 
 }) => {
+  const { selectedBranch } = useBranch();
   const [formData, setFormData] = useState<TaskFormData>({
     required_action: initialData?.required_action || '',
     notes: initialData?.notes || '',
@@ -37,6 +39,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     responsible_employee: initialData?.responsible_employee || '',
     customer_code: initialData?.customer_code || '',
     created_at: initialData?.created_at || new Date().toISOString(),
+    branch_name: initialData?.branch_name || (selectedBranch !== 'الكل' ? selectedBranch : 'الجيش'),
   });
 
   const handleStatusChange = (value: TaskStatus) => {
@@ -77,13 +80,31 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         />
       </div>
       
-      <div>
-        <label className="block text-sm font-medium mb-1 text-right">كود العميل</label>
-        <Input
-          value={formData.customer_code}
-          onChange={(e) => setFormData({...formData, customer_code: e.target.value})}
-          dir="rtl"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1 text-right">كود العميل</label>
+          <Input
+            value={formData.customer_code}
+            onChange={(e) => setFormData({...formData, customer_code: e.target.value})}
+            dir="rtl"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1 text-right">الفرع</label>
+          <Select
+            value={formData.branch_name || 'الجيش'}
+            onValueChange={(val) => setFormData({...formData, branch_name: val})}
+            dir="rtl"
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="اختر الفرع" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="الجيش">فرع الجيش</SelectItem>
+              <SelectItem value="المعادي">فرع المعادي</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
