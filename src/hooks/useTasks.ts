@@ -33,11 +33,24 @@ export const useTasks = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [notifiedOverdueTasks, setNotifiedOverdueTasks] = useState<Set<string>>(new Set());
 
+  // Reset currentPage to 1 when filters or selectedBranch change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedBranch, submittedSearchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty]);
+
   // Paginated tasks query
   const { data: paginatedResponse, isLoading, isError } = useQuery({
     queryKey: ['tasks', currentPage, itemsPerPage, submittedSearchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder, selectedBranch],
-    queryFn: () => getPaginatedTasks(currentPage, itemsPerPage, submittedSearchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder, selectedBranch)
+    queryFn: () => getPaginatedTasks(currentPage, itemsPerPage, submittedSearchQuery, filterStatus, filterResponsibleEmployee, filterRequestingParty, sortBy, sortOrder, selectedBranch),
+    retry: false,
   });
+
+  // If query returns error (e.g. range not satisfiable after switching branch), reset page to 1
+  useEffect(() => {
+    if (isError && currentPage > 1) {
+      setCurrentPage(1);
+    }
+  }, [isError, currentPage]);
 
   const tasks = paginatedResponse?.data || [];
   const totalTasksCount = paginatedResponse?.count || 0;

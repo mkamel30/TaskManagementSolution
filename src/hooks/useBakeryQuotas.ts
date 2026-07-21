@@ -28,10 +28,23 @@ export const useBakeryQuotas = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // Reset currentPage to 1 when filters or selectedBranch change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedBranch, submittedSearchQuery, startDate, endDate]);
+
   const { data: paginatedResponse, isLoading, isError } = useQuery({
     queryKey: ['bakeryQuotas', currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder, startDate, endDate, selectedBranch],
     queryFn: () => getPaginatedBakeryQuotas(currentPage, itemsPerPage, submittedSearchQuery, sortBy, sortOrder, startDate, endDate, selectedBranch),
+    retry: false,
   });
+
+  // If query returns error (e.g. range not satisfiable after switching branch), reset page to 1
+  useEffect(() => {
+    if (isError && currentPage > 1) {
+      setCurrentPage(1);
+    }
+  }, [isError, currentPage]);
 
   const bakeries = paginatedResponse?.data || [];
   const totalBakeriesCount = paginatedResponse?.count || 0;
